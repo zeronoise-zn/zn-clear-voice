@@ -1,0 +1,9 @@
+Per verificare che la versione che si sta utilizzando sia quella corretta, calcolare lo sha256 del file .uf2 presente in questa cartella.
+
+Trascinare il file nella finestra presente in questo sito:
+https://emn178.github.io/online-tools/sha256_checksum.html
+
+Se il codice che compare coincide con quello sotto, la versione è corretta.
+
+Versione B_01
+Sha 256: 5609056b35b7ea9f848453e8d49da7689b0f22ca98f8c19d01b8fcb373da19f9
