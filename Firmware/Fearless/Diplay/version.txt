@@ -1,10 +1,10 @@
-Ultima Versione 1.0.1 Sha 256	bfd47098aefb47f5c4d5e8b0cb57a7f7fca2bf87e21b8340d46454e12f9ea1cf
+Ultima Versione 1.0.1 Sha 256	0c4254104e4ceb80f3a454481abcdcb1620e8fafd3d204b8d7e7413d9a932472
 
 CHANGELOG
 (1.0.0) Sha 256	141cf219d259e96099829740f75da80b620d6d0589df4afce1c7825866b74988
 - Prima versione in produzione
 
-(1.0.1) Sha 256	bfd47098aefb47f5c4d5e8b0cb57a7f7fca2bf87e21b8340d46454e12f9ea1cf
+(1.0.1) Sha 256	0c4254104e4ceb80f3a454481abcdcb1620e8fafd3d204b8d7e7413d9a932472
 - Aggiunte informazioni version LCD, Board e tempo di uso
 - Implementato meccanismo di Update da APP
 
