@@ -1,4 +1,4 @@
-Ultima Versione 1.0.2 Sha 256	d5ab2ce859d1d5d2c28d1f45798c23aca57374ba7cb1d31546e745df23f3c044
+Ultima Versione 1.0.3 Sha 256	082bfda925c3456de4e71a365819669f8984513791f771bcd2c92e502dc17f5e
 
 CHANGELOG
 (1.0.0) Sha 256	
@@ -8,5 +8,5 @@ CHANGELOG
 - Aggiunte informazioni version LCD, Board e tempo di uso
 - Implementato meccanismo di Update da APP
 
-(1.0.2) Sha 256	d5ab2ce859d1d5d2c28d1f45798c23aca57374ba7cb1d31546e745df23f3c044
+(1.0.3) Sha 256	082bfda925c3456de4e71a365819669f8984513791f771bcd2c92e502dc17f5e
 - Implementato timer spegnimento Wi-Fi 2min

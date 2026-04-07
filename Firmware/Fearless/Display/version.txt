@@ -1,4 +1,4 @@
-Ultima Versione 1.0.2 Sha 256	fdd92c1408b3b07396aab82b769ad4f313d7733e841dd2c834206d29bc750b26
+Ultima Versione 1.0.2 Sha 256	e5ec139baa0da7c30986c4787992001db85456be0a6bbcad6afad59a0df52bf1
 
 CHANGELOG
 (1.0.0) Sha 256	141cf219d259e96099829740f75da80b620d6d0589df4afce1c7825866b74988
@@ -10,3 +10,6 @@ CHANGELOG
 
 (1.0.2) Sha 256	fdd92c1408b3b07396aab82b769ad4f313d7733e841dd2c834206d29bc750b26
 - Implementato timer spegnimento Wi-Fi 2min
+
+(1.0.3) Sha 256 e5ec139baa0da7c30986c4787992001db85456be0a6bbcad6afad59a0df52bf1
+- Risoluzione bug volume BT con AUTOANSWER = ON
