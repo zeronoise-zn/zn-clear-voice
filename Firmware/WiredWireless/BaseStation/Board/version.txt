@@ -1,9 +1,9 @@
 Version 1.01
-bin Sha 256	6f0d9520baede7e304a8d145248952d92d4e8680473d86a4e6ac9073eb0f29f1
-uf2 Sha 256	8b6b989978e0de04a074de8ea19b9cc28b5dcfae11923317085b51c0339cdcde
+bin Sha 256	33a6dba98479f864904cf0168f23e7ba71c0816158aff759e94bf85561b5e3a3
+uf2 Sha 256	2724806ad404f9eb8da8a61849ae5c53eb2346029b92561c5828fcd3d8a00cfc
 
 CHANGELOG
 - Prima versione in produzione (1.00)
 
-(1.0.1) 6f0d9520baede7e304a8d145248952d92d4e8680473d86a4e6ac9073eb0f29f1
+(1.0.1) 33a6dba98479f864904cf0168f23e7ba71c0816158aff759e94bf85561b5e3a3
 - Risolto bug isolamento caschi dopo accensione di un casco da cablato mentre l'altro casco in WIRELESS
