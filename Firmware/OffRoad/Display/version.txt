@@ -1,5 +1,5 @@
-Ultima Versione 1.0.3 Sha 256	7c9ebf444e93ca3a11e7e95a747cd7ef644564e6958ab9dc2671368a7be6a920
+Ultima Versione 1.0.3 Sha 256	24032de78a9e440cd0450850bc02be0db585079c601647b562f42c5f2a94ef59
 
 CHANGELOG
-(1.0.3) Sha 256	
+(1.0.3) Sha 256	24032de78a9e440cd0450850bc02be0db585079c601647b562f42c5f2a94ef59
 - Prima versione in produzione
