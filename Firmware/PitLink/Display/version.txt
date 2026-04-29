@@ -1,4 +1,4 @@
-Ultima Versione 1.0.3 Sha 256	86518f246313b4f03c42933e40573318f8516d98a7eb5049bf28d6abd91cf627
+Ultima Versione 1.0.4 Sha 256	f54696432cfb3bad5772d5bc9b19523283167a72fbaaee9c109da5803cda8c8a
 
 CHANGELOG
 (1.0.0) Sha 256	
@@ -11,6 +11,7 @@ CHANGELOG
 (1.0.2) Sha 256	02cbaaf2854c9e9895021f3496196956303a2681fcde01707a0d44d3d48ae2f9
 - Implementato timer spegnimento Wi-Fi 2min
 
-(1.0.3) Sha 256 86518f246313b4f03c42933e40573318f8516d98a7eb5049bf28d6abd91cf627
+(1.0.4) Sha 256 f54696432cfb3bad5772d5bc9b19523283167a72fbaaee9c109da5803cda8c8a
 - Risoluzione bug volume BT con AUTOANSWER = ON
 - Risolti problem PTT e audio BT quando si chiude la chiamata con PTT
+- Audio Radio: attivato sempre il mixer quando c'è il driver attaccato
