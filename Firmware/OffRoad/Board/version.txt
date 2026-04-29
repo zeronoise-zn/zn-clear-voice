@@ -1,6 +1,6 @@
-Version 1.00
-bin Sha 256	fb5c7892f00e04346e57d07105fa071e5dfb6bed64522b37d59c6929b7cf70ed
-uf2 Sha 256	20a00aa9593c7c9213775d75cc73aa99467b6f941a5eef5494209569a9a1837d
+Version 1.0.0
+bin Sha 256	718cf22243770761b8e5eff8d9c8a055c7d57a2c3e3f12b565696bddb5173b43
+uf2 Sha 256	9b09d59cccc6a20e4641005f8fe189357f8b5e3182f3b60f167cde657b6c5855
 
 CHANGELOG
-- Prima versione in produzione (1.00)
+- Prima versione in produzione (1.0.0)
