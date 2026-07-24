@@ -1,26 +1,62 @@
 # ZeroNoise Clear Voice Systems
 
-The ZeroNoise Clear Voice Systems are a range of products that revolutionize rally communication thanks to the innovative seamless integration of wired and wireless technologies.
-It includes:
-- WW System
-- Fearless System
-- Pit-Link System
-- OffRoad System
+The ZeroNoise Clear Voice Systems are a range of products that revolutionize rally communication through the seamless integration of wired and wireless technologies.
 
-The crystal-clear audio ensures that every critical note and instruction is heard and understood, even in the loudest car. In addition, Bluetooth connectivity keeps the team in touch, facilitating communication with support staff and management and ensuring that the team is always in sync, well informed, and ready to adapt to the dynamic demands of rally racing.
+The range includes:
 
-## Key Features and Benefits:
+* WW System
+* Fearless System
+* Pit-Link System
+* OffRoad System
 
-Depending on the system to be considered, it will have all or a subpart of these features:
+Crystal-clear audio ensures that every critical note and instruction is heard and understood, even in the loudest vehicle environments.
 
-- **Wired and Wireless Technology (WW):** The technology provides reliable, delay-free communication and the seamless transition between modes ensures uninterrupted communication in all situations.
-- **Advanced Noise Cancelling (ALL):** Noise cancellation technology filters out unwanted background noise and guarantees a clear communication. 
-- **Automatic Switching Between Connection Modes (WW):**  Stable connection and automatic switching between wired and wireless modes is ensured, guaranteeing continuous and uninterrupted communication during stages or road sections.
-- **Keyboard and Touch Screen Display (ALL):** Information about the system, such as battery level and connection status, are displayed, and users can fine-tune audio parameters for optimal performance under any conditions.
-- **Compatibility with Helmets and Headsets (ALL, Headsets for WW):** High-performance wireless connectivity is available with Bell Mag-10 Rally Carbon WW and HP10 Rally WW helmets and Zeronoise WW headsets. In addition, the intercom is compatible with any helmet or headset with a female Nexus connector, providing versatility and ease of use.
-- **Wireless Mode for Driver and Co-Driver Freedom (WW):** Users can use the communication system inside the vehicle or move around the car without losing connectivity. This flexibility is vital in cases where a quick exit is needed, such as repairing a tire puncture.
-- **Customizable Sound Settings (ALL):** Audio settings are fully customizable for maximum clarity, allowing perfect tuning to specific stage environments and personal preferences.
-- **Bluetooth Connectivity for Team Communication (ALL but OFFROAD):** Communication with service crews or team management for strategy discussion and team coordination is possible via Bluetooth.
-- **Stage Mode for Focused Communication (ALL but PITLINK):** With stage mode selected, it is possible to stay focused during live stages by keeping only driver and co-driver communication and blocking external interactions.
-- **Audio Output for In-Car Camera Use (ALL but OFFROAD):** The direct audio recording of both driver and co-driver's communication to in-car cameras is supported during stages.
-- **Audio In/Out Radio Connection (ALL but OFFROAD):** The direct team communication via external radio is supported.
+Bluetooth connectivity also keeps the team in contact with support staff and team management, ensuring that everyone remains synchronized, informed, and ready to adapt to the dynamic demands of rally racing.
+
+## Key Features and Benefits
+
+Depending on the system, all or a subset of the following features may be available:
+
+* **Wired and Wireless Technology (WW):** Provides reliable, delay-free communication. The seamless transition between connection modes ensures uninterrupted communication in all situations.
+
+* **Advanced Noise Cancelling (ALL):** Noise cancellation technology filters out unwanted background noise and guarantees clear communication.
+
+* **Automatic Switching Between Connection Modes (WW):** Ensures a stable connection and automatically switches between wired and wireless modes, guaranteeing continuous communication during stages and road sections.
+
+* **Keyboard and Touchscreen Display (ALL):** Displays system information, such as battery level and connection status, and allows users to fine-tune audio parameters for optimal performance under all conditions.
+
+* **Compatibility with Helmets and Headsets (ALL, Headsets for WW):** High-performance wireless connectivity is available with Bell MAG-10 Rally Carbon WW and HP10 Rally WW helmets, as well as ZeroNoise WW headsets. The intercom is also compatible with helmets and headsets equipped with a female Nexus connector.
+
+* **Wireless Mode for Driver and Co-Driver Freedom (WW):** Allows users to communicate inside the vehicle or move around it without losing connectivity. This flexibility is particularly useful when a quick exit from the vehicle is required, such as during a tire change.
+
+* **Customizable Sound Settings (ALL):** Audio settings are fully customizable to provide maximum clarity and allow precise tuning for specific stage environments and personal preferences.
+
+* **Bluetooth Connectivity for Team Communication (ALL except OffRoad):** Supports communication with service crews and team management for strategy discussions and team coordination.
+
+* **Stage Mode for Focused Communication (ALL except Pit-Link):** Limits communication to the driver and co-driver during competitive stages, preventing external interactions and helping the crew remain focused.
+
+* **Audio Output for In-Car Camera Use (ALL except OffRoad):** Supports direct recording of driver and co-driver communication through an in-car camera system.
+
+* **Audio Input/Output for Radio Connection (ALL except OffRoad):** Supports direct team communication through an external radio system.
+
+## CAN Database
+
+### ZN_CAN_FEARLESS_v1_08
+
+`ZN_CAN_FEARLESS_v1_08.dbc` is the CAN database file used to describe the communication interface of the ZeroNoise Fearless system.
+
+The DBC file defines the CAN messages, signals, bit positions, data lengths, scaling factors, limits, units, and enumerated values required to decode and generate Fearless CAN communication.
+
+The database includes the following standard 11-bit CAN messages:
+
+| CAN ID  | Message Name         | Description                                                                      |
+| ------- | -------------------- | -------------------------------------------------------------------------------- |
+| `0x410` | `Intercom_Status`    | Reports the current operating status and configuration of the Fearless intercom. |
+| `0x411` | `Intercom_Command_0` | Controls the main intercom functions and audio parameters.                       |
+| `0x412` | `Intercom_Command_1` | Controls additional intercom functions and configuration parameters.             |
+
+All messages use an 8-byte CAN payload.
+
+Version `v1_08` is provided as a standard raw DBC file and can be imported into compatible CAN tools, including Vector CANdb++, CANoe, CANalyzer, PCAN-Explorer, BusMaster, SavvyCAN, and other DBC-compatible software.
+
+The database can also be used to generate software structures and encode/decode functions for embedded applications, test tools, diagnostic software, and CAN monitoring systems.
