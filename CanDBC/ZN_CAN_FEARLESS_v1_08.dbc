@@ -1,0 +1,148 @@
+VERSION "ZN_CAN_FEARLESS_v1_08"
+
+
+NS_ :
+	NS_DESC_
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	CAT_DEF_
+	CAT_
+	FILTER
+	BA_DEF_DEF_
+	EV_DATA_
+	ENVVAR_DATA_
+	SGTYPE_
+	SGTYPE_VAL_
+	BA_DEF_SGTYPE_
+	BA_SGTYPE_
+	SIG_TYPE_REF_
+	VAL_TABLE_
+	SIG_GROUP_
+	SIG_VALTYPE_
+	SIGTYPE_VALTYPE_
+	BO_TX_BU_
+	BA_DEF_REL_
+	BA_REL_
+	BA_DEF_DEF_REL_
+	BU_SG_REL_
+	BU_EV_REL_
+	BU_BO_REL_
+	SG_MUL_VAL_
+
+BS_:
+
+BU_: ZN
+
+BO_ 1040 Intercom_Status: 8 ZN
+ SG_ STS_Firmware_Revision : 0|4@1+ (0.1,0) [0|1.5] "" Vector__XXX
+ SG_ STS_Lcd_Brightness : 4|4@1+ (1,0) [0|15] "" Vector__XXX
+ SG_ STS_Driver_Volume : 8|4@1+ (1,0) [0|9] "" Vector__XXX
+ SG_ STS_CoDriver_Volume : 12|4@1+ (1,0) [0|9] "" Vector__XXX
+ SG_ STS_Driver_ID : 16|3@1+ (1,0) [0|7] "" Vector__XXX
+ SG_ STS_CoDriver_ID : 19|3@1+ (1,0) [0|7] "" Vector__XXX
+ SG_ STS_AudioBoost : 22|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ STS_Autoanswer : 23|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ STS_System_Error : 24|3@1+ (1,0) [0|7] "" Vector__XXX
+ SG_ STS_Noise_Filter : 27|3@1+ (1,0) [1|5] "" Vector__XXX
+ SG_ STS_Wifi : 30|2@1+ (1,0) [0|3] "" Vector__XXX
+ SG_ STS_Voice_Filter : 32|3@1+ (1,0) [1|5] "" Vector__XXX
+ SG_ STS_Bluetooth : 35|3@1+ (1,0) [0|5] "" Vector__XXX
+ SG_ STS_External_PTT : 38|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ STS_CAN_PTT : 39|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ STS_BT_Incoming_Call_Volume : 40|4@1+ (1,0) [0|9] "" Vector__XXX
+ SG_ STS_BT_Outgoing_Call_Volume : 44|4@1+ (1,0) [0|9] "" Vector__XXX
+ SG_ STS_BT_Music_Volume : 48|4@1+ (1,0) [0|9] "" Vector__XXX
+ SG_ STS_Camera_Car_Output_Volume : 52|4@1+ (1,0) [0|9] "" Vector__XXX
+ SG_ STS_Radio_Input_Volume : 56|4@1+ (1,0) [0|9] "" Vector__XXX
+ SG_ STS_Radio_Output_Volume : 60|4@1+ (1,0) [0|9] "" Vector__XXX
+
+BO_ 1041 Intercom_Command_0: 8 ZN
+ SG_ Reserved_2 : 20|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Reserved_3 : 51|13@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ CMD_SoundBeepFreq : 0|8@1+ (10,0) [500|2500] "Hz" Vector__XXX
+ SG_ CMD_SoundBeepDuration : 8|8@1+ (10,0) [100|2500] "ms" Vector__XXX
+ SG_ CMD_SoundBeepVolume : 16|4@1+ (1,0) [0|9] "" Vector__XXX
+ SG_ CMD_SoundBeepPlay : 21|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CMD_DriverVolume_UP : 22|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CMD_DriverVolume_Down : 23|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CMD_DriverVolume_Value : 24|4@1+ (1,0) [0|9] "" Vector__XXX
+ SG_ CMD_Radio_Tx : 28|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CMD_BT_Module_OnOff : 29|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CMD_CoDriverVolume_Up : 30|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CMD_CoDriverVolume_Down : 31|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CMD_CoDriverVolume_Value : 32|4@1+ (1,0) [0|9] "" Vector__XXX
+ SG_ CMD_NoiseFilter_Up : 36|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CMD_NoiseFilter_Value : 37|3@1+ (1,0) [1|5] "" Vector__XXX
+ SG_ CMD_NoiseFilter_Down : 40|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CMD_VoiceFilter_Up : 41|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CMD_VoiceFilter_Down : 42|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CMD_VoiceFilter_Value : 43|3@1+ (1,0) [1|5] "" Vector__XXX
+ SG_ CMD_WiFi_Module_OnOff : 46|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CMD_Radio_Module_OnOff : 47|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CMD_Answer_Incoming_Call : 48|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CMD_HangUp_Incoming_Call : 49|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CMD_Intercom_Default_Setting : 50|1@1+ (1,0) [0|1] "" Vector__XXX
+
+BO_ 1042 Intercom_Command_1: 8 ZN
+ SG_ CMD_CameraCarVolume : 0|4@1+ (1,0) [0|9] "" Vector__XXX
+ SG_ CMD_IncomingVolume : 4|4@1+ (1,0) [0|9] "" Vector__XXX
+ SG_ CMD_OutgoingVolume : 8|4@1+ (1,0) [0|9] "" Vector__XXX
+ SG_ CMD_RadioInVolume : 12|4@1+ (1,0) [0|9] "" Vector__XXX
+ SG_ CMD_RadioOutVolume : 16|4@1+ (1,0) [0|9] "" Vector__XXX
+ SG_ CMD_BTMusicVolume : 20|4@1+ (1,0) [0|9] "" Vector__XXX
+ SG_ CMD_DriverFBVolume : 24|4@1+ (1,0) [0|9] "" Vector__XXX
+ SG_ CMD_Autocharge : 28|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CMD_Autoanswer : 29|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CMD_VolumeBoost : 30|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Reserved_4 : 31|1@1+ (1,0) [0|0] "" Vector__XXX
+
+CM_ "This DBC file is the property of Racing Force S.p.A. Distribution, reproduction, modification, or use outside the authorized agreements is prohibited. Any unauthorized use is expressly forbidden.ZN Intercom DBCRacing Force S.p.A.";
+CM_ BO_ 1040 "Intercom Status (Std ID 0x410). Period 100ms. Direction Bidirectional. Displays status for audio, BT/WiFi, PTT, volumes and brightness.";
+CM_ BO_ 1041 "Intercom Command 0(Std ID 0x411). Period 100ms. Commands for beep, volumes, PTT, filters, modules and call control.";
+CM_ BO_ 1042 "Intercom Command 1(Std ID 0x412). Period 100ms. Commands for secondary menu controls.";
+CM_ SG_ 1041 CMD_SoundBeepPlay "Command: set 1 to execute once, then set 0 (explicit reset required).";
+CM_ SG_ 1041 CMD_DriverVolume_UP "Command: set 1 to execute once, then set 0 (explicit reset required).";
+CM_ SG_ 1041 CMD_DriverVolume_Down "Command: set 1 to execute once, then set 0 (explicit reset required).";
+CM_ SG_ 1041 CMD_Radio_Tx "Level-based: 0=Off, 1=On (persistent state).";
+CM_ SG_ 1041 CMD_CoDriverVolume_Up "Command: set 1 to execute once, then set 0 (explicit reset required).";
+CM_ SG_ 1041 CMD_CoDriverVolume_Down "Command: set 1 to execute once, then set 0 (explicit reset required).";
+CM_ SG_ 1041 CMD_NoiseFilter_Up "Command: set 1 to execute once, then set 0 (explicit reset required).";
+CM_ SG_ 1041 CMD_NoiseFilter_Down "Command: set 1 to execute once, then set 0 (explicit reset required).";
+CM_ SG_ 1041 CMD_VoiceFilter_Up "Command: set 1 to execute once, then set 0 (explicit reset required).";
+CM_ SG_ 1041 CMD_VoiceFilter_Down "Command: set 1 to execute once, then set 0 (explicit reset required).";
+CM_ SG_ 1041 CMD_BT_Module_OnOff "Level-based: 0=Off, 1=On (persistent state).";
+CM_ SG_ 1041 CMD_WiFi_Module_OnOff "Level-based: 0=Off, 1=On (persistent state).";
+CM_ SG_ 1041 CMD_Answer_Incoming_Call "Command: set 1 to answer call, then set 0 (explicit reset required).";
+CM_ SG_ 1041 CMD_HangUp_Incoming_Call "Command: set 1 to hang up call, then set 0 (explicit reset required).";
+CM_ SG_ 1041 CMD_Intercom_Default_Setting "Command: set 1 to apply defaults, then set 0 (explicit reset required).";
+CM_ SG_ 1042 CMD_Autocharge "Level-based: 0=Off, 1=On (persistent state).";
+CM_ SG_ 1042 CMD_Autoanswer "Level-based: 0=Off, 1=On (persistent state).";
+CM_ SG_ 1042 CMD_VolumeBoost "Level-based: 0=Off, 1=On (persistent state).";
+BA_DEF_ BO_  "GenMsgCycleTime" INT 0 65535;
+BA_DEF_DEF_  "GenMsgCycleTime" 0;
+BA_ "GenMsgCycleTime" BO_ 1040 100;
+BA_ "GenMsgCycleTime" BO_ 1041 100;
+BA_ "GenMsgCycleTime" BO_ 1042 100;
+VAL_ 1040 STS_System_Error 0 "NoError" 1 "BluetoothError" 2 "WifiError" 3 "SystemError" 4 "LcdError" 5 "Reserved" 6 "Reserved" 7 "Reserved" ;
+VAL_ 1040 STS_AudioBoost 0 "Off" 1 "On" ;
+VAL_ 1040 STS_Bluetooth 0 "ModuleOff" 1 "Unpaired" 2 "Paired" 3 "IncomingCall" 4 "CallActive" 5 "ListenMusic" ;
+VAL_ 1040 STS_Wifi 0 "Off" 1 "OnNotConnected" 2 "OnConnected" ;
+VAL_ 1040 STS_Autoanswer 0 "Disabled" 1 "Enabled" ;
+VAL_ 1040 STS_External_PTT 0 "Released" 1 "Pressed" ;
+VAL_ 1040 STS_CAN_PTT 0 "Released" 1 "Pressed" ;
+VAL_ 1041 CMD_SoundBeepPlay 0 "Stop" 1 "Play" ;
+VAL_ 1041 CMD_DriverVolume_UP 0 "NoOp" 1 "StepUp" ;
+VAL_ 1041 CMD_DriverVolume_Down 0 "NoOp" 1 "StepDown" ;
+VAL_ 1041 CMD_CoDriverVolume_Up 0 "NoOp" 1 "StepUp" ;
+VAL_ 1041 CMD_CoDriverVolume_Down 0 "NoOp" 1 "StepDown" ;
+VAL_ 1041 CMD_NoiseFilter_Up 0 "NoOp" 1 "StepUp" ;
+VAL_ 1041 CMD_NoiseFilter_Down 0 "NoOp" 1 "StepDown" ;
+VAL_ 1041 CMD_VoiceFilter_Up 0 "NoOp" 1 "StepUp" ;
+VAL_ 1041 CMD_VoiceFilter_Down 0 "NoOp" 1 "StepDown" ;
+VAL_ 1041 CMD_BT_Module_OnOff 0 "Off" 1 "On" ;
+VAL_ 1041 CMD_WiFi_Module_OnOff 0 "Off" 1 "On" ;
+VAL_ 1041 CMD_Answer_Incoming_Call 0 "NoOp" 1 "Answer" ;
+VAL_ 1041 CMD_HangUp_Incoming_Call 0 "NoOp" 1 "HangUp" ;
+VAL_ 1041 CMD_Intercom_Default_Setting 0 "NoOp" 1 "ApplyDefaults" ;

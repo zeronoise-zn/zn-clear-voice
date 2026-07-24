@@ -1,62 +1,103 @@
 # ZeroNoise Clear Voice Systems
 
-The ZeroNoise Clear Voice Systems are a range of products that revolutionize rally communication through the seamless integration of wired and wireless technologies.
+ZeroNoise Clear Voice Systems are designed to improve rally communication through the integration of wired and wireless technologies.
 
-The range includes:
+The product range includes:
 
-* WW System
-* Fearless System
-* Pit-Link System
-* OffRoad System
+- WW System
+- Fearless System
+- Pit-Link System
+- OffRoad System
 
-Crystal-clear audio ensures that every critical note and instruction is heard and understood, even in the loudest vehicle environments.
-
-Bluetooth connectivity also keeps the team in contact with support staff and team management, ensuring that everyone remains synchronized, informed, and ready to adapt to the dynamic demands of rally racing.
+Crystal-clear audio ensures that critical notes and instructions are heard and understood, even in high-noise vehicle environments. Bluetooth connectivity also keeps the crew in contact with support staff and team management.
 
 ## Key Features and Benefits
 
-Depending on the system, all or a subset of the following features may be available:
+Depending on the selected system, all or a subset of the following features may be available:
 
-* **Wired and Wireless Technology (WW):** Provides reliable, delay-free communication. The seamless transition between connection modes ensures uninterrupted communication in all situations.
+- **Wired and Wireless Technology (WW):** Provides reliable, delay-free communication and seamless switching between wired and wireless modes.
+- **Advanced Noise Cancelling (All systems):** Filters unwanted background noise to ensure clear communication.
+- **Automatic Connection Switching (WW):** Automatically switches between wired and wireless modes during stages and road sections.
+- **Keyboard and Touchscreen Display (All systems):** Displays system information, including battery level and connection status, and allows audio parameter adjustment.
+- **Helmet and Headset Compatibility:** Supports Bell MAG-10 Rally Carbon WW and HP10 Rally WW helmets, ZeroNoise WW headsets, and devices equipped with a female Nexus connector.
+- **Driver and Co-Driver Wireless Freedom (WW):** Maintains communication when users leave the vehicle, for example during a tire change.
+- **Customizable Sound Settings (All systems):** Allows audio tuning for different stage conditions and personal preferences.
+- **Bluetooth Team Communication (All except OffRoad):** Supports communication with service crews and team management.
+- **Stage Mode (All except Pit-Link):** Restricts communication to the driver and co-driver during competitive stages.
+- **In-Car Camera Audio Output (All except OffRoad):** Supports direct recording of driver and co-driver communication.
+- **External Radio Audio Input/Output (All except OffRoad):** Supports direct communication through an external radio system.
 
-* **Advanced Noise Cancelling (ALL):** Noise cancellation technology filters out unwanted background noise and guarantees clear communication.
+## CAN Database Files
 
-* **Automatic Switching Between Connection Modes (WW):** Ensures a stable connection and automatically switches between wired and wireless modes, guaranteeing continuous communication during stages and road sections.
+The repository contains two CAN database files:
 
-* **Keyboard and Touchscreen Display (ALL):** Displays system information, such as battery level and connection status, and allows users to fine-tune audio parameters for optimal performance under all conditions.
+| File | System | Description |
+|:---|:---|:---|
+| `ZN_CAN_WW_v1_08.dbc` | WW | Includes the common intercom messages and the WW wireless-device status message. |
+| `ZN_CAN_FEARLESS_v1_08.dbc` | Fearless | Includes the common intercom status and command messages without the WW-specific status message. |
 
-* **Compatibility with Helmets and Headsets (ALL, Headsets for WW):** High-performance wireless connectivity is available with Bell MAG-10 Rally Carbon WW and HP10 Rally WW helmets, as well as ZeroNoise WW headsets. The intercom is also compatible with helmets and headsets equipped with a female Nexus connector.
+Both databases use:
 
-* **Wireless Mode for Driver and Co-Driver Freedom (WW):** Allows users to communicate inside the vehicle or move around it without losing connectivity. This flexibility is particularly useful when a quick exit from the vehicle is required, such as during a tire change.
+- Standard 11-bit CAN identifiers
+- 8-byte CAN payloads
+- Intel/little-endian signal encoding
+- Signal definitions aligned with the corresponding C header files
 
-* **Customizable Sound Settings (ALL):** Audio settings are fully customizable to provide maximum clarity and allow precise tuning for specific stage environments and personal preferences.
+Version `v1_08` is aligned with the header definitions for CAN IDs, DLC, signal start bits, signal lengths, factors, offsets, valid ranges, signal names, and reserved-bit allocation.
 
-* **Bluetooth Connectivity for Team Communication (ALL except OffRoad):** Supports communication with service crews and team management for strategy discussions and team coordination.
+## ZN_CAN_WW_v1_08
 
-* **Stage Mode for Focused Communication (ALL except Pit-Link):** Limits communication to the driver and co-driver during competitive stages, preventing external interactions and helping the crew remain focused.
+`ZN_CAN_WW_v1_08.dbc` describes the CAN communication interface of the ZeroNoise WW system.
 
-* **Audio Output for In-Car Camera Use (ALL except OffRoad):** Supports direct recording of driver and co-driver communication through an in-car camera system.
+| CAN ID | Message Name | Description |
+|:---:|:---|:---|
+| `0x40F` | `Intercom_Status_1` | Reports wireless connection, battery, charging, pairing, and autocharge status. |
+| `0x410` | `Intercom_Status_0` | Reports intercom operating status, audio settings, PTT status, and configuration. |
+| `0x411` | `Intercom_Command_0` | Controls the main intercom functions, operating modes, filters, and volume parameters. |
+| `0x412` | `Intercom_Command_1` | Controls additional audio volumes and persistent functions. |
 
-* **Audio Input/Output for Radio Connection (ALL except OffRoad):** Supports direct team communication through an external radio system.
+The WW-specific message `0x40F` includes:
 
-## CAN Database
+- Driver and co-driver connection status
+- Driver and co-driver headset connection status
+- Driver and co-driver battery level
+- Charging status for supported wireless devices
+- Autocharge status
 
-### ZN_CAN_FEARLESS_v1_08
+## ZN_CAN_FEARLESS_v1_08
 
-`ZN_CAN_FEARLESS_v1_08.dbc` is the CAN database file used to describe the communication interface of the ZeroNoise Fearless system.
+`ZN_CAN_FEARLESS_v1_08.dbc` describes the CAN communication interface of the ZeroNoise Fearless system.
 
-The DBC file defines the CAN messages, signals, bit positions, data lengths, scaling factors, limits, units, and enumerated values required to decode and generate Fearless CAN communication.
+| CAN ID | Message Name | Description |
+|:---:|:---|:---|
+| `0x410` | `Intercom_Status` | Reports intercom operating status, audio settings, PTT status, and configuration. |
+| `0x411` | `Intercom_Command_0` | Controls the main intercom functions, operating modes, filters, and volume parameters. |
+| `0x412` | `Intercom_Command_1` | Controls additional audio volumes and persistent functions. |
 
-The database includes the following standard 11-bit CAN messages:
+The Fearless database does not include the WW-specific message `0x40F`.
 
-| CAN ID  | Message Name         | Description                                                                      |
-| ------- | -------------------- | -------------------------------------------------------------------------------- |
-| `0x410` | `Intercom_Status`    | Reports the current operating status and configuration of the Fearless intercom. |
-| `0x411` | `Intercom_Command_0` | Controls the main intercom functions and audio parameters.                       |
-| `0x412` | `Intercom_Command_1` | Controls additional intercom functions and configuration parameters.             |
+## Changes in v1_08
 
-All messages use an 8-byte CAN payload.
+The following updates are included in both databases where applicable:
 
-Version `v1_08` is provided as a standard raw DBC file and can be imported into compatible CAN tools, including Vector CANdb++, CANoe, CANalyzer, PCAN-Explorer, BusMaster, SavvyCAN, and other DBC-compatible software.
+- `STS_External_PTT` assigned to bit 38 of message `0x410`
+- `STS_CAN_PTT` assigned to bit 39 of message `0x410`
+- Noise and voice filter ranges set from `1` to `5`
+- Signal names aligned with the corresponding C header definitions
+- Associated `VAL_` enumerations and `CM_` comments updated
+- Reserved fields maintained only in unused payload areas
+- No signal overlaps
 
-The database can also be used to generate software structures and encode/decode functions for embedded applications, test tools, diagnostic software, and CAN monitoring systems.
+## Compatible Tools
+
+The DBC files are standard raw ASCII databases and can be imported into:
+
+- Vector CANdb++
+- Vector CANoe
+- Vector CANalyzer
+- PEAK PCAN-Explorer
+- BusMaster
+- SavvyCAN
+- Other DBC-compatible tools
+
+The databases can also be used for embedded code generation, diagnostics, automated testing, and CAN monitoring.
