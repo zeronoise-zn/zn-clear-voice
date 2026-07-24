@@ -8,6 +8,7 @@ The product range includes:
 - Fearless System
 - Pit-Link System
 - OffRoad System
+- Fury
 
 Crystal-clear audio ensures that critical notes and instructions are heard and understood, even in high-noise vehicle environments. Bluetooth connectivity also keeps the crew in contact with support staff and team management.
 
