@@ -72,7 +72,7 @@
   }
 
   function sortTargets(targets) {
-    const selected = localStorage.getItem(STORAGE_KEY) || '';
+    const selected = sessionStorage.getItem(STORAGE_KEY) || '';
     return [...targets].sort((a, b) => {
       const aSelected = selected && normalizeVersion(a.version) === normalizeVersion(selected);
       const bSelected = selected && normalizeVersion(b.version) === normalizeVersion(selected);
@@ -96,6 +96,8 @@
         data.targets = sortTargets(data.targets);
         window.__ZN_FW_CATALOG__ = catalog;
         queueMicrotask(refreshSelector);
+        setTimeout(syncSelectionState, 100);
+        setTimeout(syncSelectionState, 400);
       }
       const headers = new Headers(response.headers);
       headers.set('content-type', 'application/json; charset=utf-8');
@@ -143,10 +145,9 @@
     document.getElementById('firmwareVersionSelect').addEventListener('change', onVersionChange);
     document.getElementById('languageSelect')?.addEventListener('change', () => setTimeout(refreshSelector, 0));
 
-    const watched = ['productValue', 'hardwareValue', 'installedValue', 'latestVersionValue', 'releaseBadge'];
-    watched.forEach(id => {
+    ['productValue', 'hardwareValue', 'installedValue'].forEach(id => {
       const node = document.getElementById(id);
-      if (node) new MutationObserver(() => scheduleSync()).observe(node, { childList: true, characterData: true, subtree: true, attributes: id === 'releaseBadge' });
+      if (node) new MutationObserver(() => scheduleSync()).observe(node, { childList: true, characterData: true, subtree: true });
     });
 
     document.getElementById('updateButton')?.addEventListener('click', event => {
@@ -195,7 +196,7 @@
     label.textContent = tr('choose');
     const compatible = uniqueVersions(compatibleTargets());
     const installed = deviceIdentity().installed;
-    const selected = localStorage.getItem(STORAGE_KEY) || '';
+    const selected = sessionStorage.getItem(STORAGE_KEY) || '';
 
     select.innerHTML = '';
     if (!compatible.length) {
@@ -223,7 +224,7 @@
     const validSelected = compatible.some(x => normalizeVersion(x.version) === normalizeVersion(selected));
     if (selected && validSelected) select.value = compatible.find(x => normalizeVersion(x.version) === normalizeVersion(selected)).version;
     else {
-      if (selected) localStorage.removeItem(STORAGE_KEY);
+      if (selected) sessionStorage.removeItem(STORAGE_KEY);
       select.value = '';
     }
 
@@ -234,18 +235,19 @@
 
   function onVersionChange(event) {
     const value = event.target.value;
-    if (value) localStorage.setItem(STORAGE_KEY, value);
-    else localStorage.removeItem(STORAGE_KEY);
+    if (value) sessionStorage.setItem(STORAGE_KEY, value);
+    else sessionStorage.removeItem(STORAGE_KEY);
 
     // Reload only the manifest through the existing updater refresh action.
     // The serial connection stays open.
     document.getElementById('refreshReleaseButton')?.click();
     setTimeout(syncSelectionState, 80);
     setTimeout(syncSelectionState, 300);
+    setTimeout(syncSelectionState, 800);
   }
 
   function selectedTarget() {
-    const selected = localStorage.getItem(STORAGE_KEY);
+    const selected = sessionStorage.getItem(STORAGE_KEY);
     if (!selected) return null;
     return compatibleTargets().find(x => normalizeVersion(x.version) === normalizeVersion(selected)) || null;
   }
@@ -253,7 +255,8 @@
   function updateTargetLabel(selected) {
     const label = document.querySelector('.version-block.accent span');
     if (!label) return;
-    label.textContent = selected ? tr('target') : tr('latestLabel');
+    const desired = selected ? tr('target') : tr('latestLabel');
+    if (label.textContent !== desired) label.textContent = desired;
   }
 
   function isDowngradeSelected() {
@@ -284,7 +287,7 @@
     updateTargetLabel(!!item);
     if (!item) return;
 
-    if (latestValue) latestValue.textContent = item.version || '—';
+    if (latestValue && latestValue.textContent !== (item.version || '—')) latestValue.textContent = item.version || '—';
     const cmp = installed && installed !== '—' ? compareVersions(item.version, installed) : null;
 
     if (cmp !== null && cmp < 0) {
