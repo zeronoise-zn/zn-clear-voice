@@ -8,11 +8,20 @@ This document describes the application-side UART handshake expected by `docs/ap
 - USB/UART bridge: FT234XD-R
 - Factory FTDI USB VID/PID: `0x0403 / 0x6015`
 - Browser transport: Web Serial
-- Application UART: `115200 8N1`
+- Application UART: `USART2`, `115200 8N1`
 - STM32 ROM bootloader UART: autobaud synchronization followed by `8E1` (the web updater opens it at 115200 baud)
 - STM32G47x/G48x bootloader PID: `0x469`
 
-The STM32G47x/G48x system-memory bootloader supports USART1, USART2 and USART3. The FT234XD must therefore be connected to a UART/pin mapping actually supported by the ROM bootloader. Confirm the exact STM32 pins used on the Clear Voice PCB before enabling production flashing.
+### Confirmed FT234XD / STM32 wiring
+
+The Clear Voice PCB uses the USART2 pin mapping supported directly by the STM32G47x/G48x ROM bootloader:
+
+```text
+FT234XD TXD  -> STM32 PA3 / USART2_RX
+FT234XD RXD  <- STM32 PA2 / USART2_TX
+```
+
+ST AN2606 explicitly lists PA3 as `USART2_RX` and PA2 as `USART2_TX` for the STM32G47xxx/48xxx system-memory bootloader. Therefore the existing FT234XD UART connection can be reused for firmware update; no second UART is required.
 
 ## Application commands
 
@@ -50,7 +59,19 @@ Browser sends:
 ZN_BOOT\n
 ```
 
-The application should then transfer control to the STM32 system-memory bootloader, or reset into system memory using a robust method suitable for the product's option-byte configuration.
+The application should then transfer control to the STM32 system-memory bootloader.
+
+For STM32G47x/G48x the system-memory bootloader starts at `0x1FFF0000`. ST AN2606 allows entering the bootloader by a software jump from user code. Before the jump the application must, at minimum:
+
+1. Stop/de-initialize application peripherals.
+2. Disable peripheral clocks that are in use.
+3. Disable the PLL(s) used by the application.
+4. Disable interrupts and clear pending interrupts.
+5. Stop SysTick.
+6. Remap system memory to `0x00000000` as required for dual-bank boot operation.
+7. Load MSP from the system-memory vector table and branch to its reset handler.
+
+The exact implementation must be validated on the production option-byte configuration. A hardware BOOT0 control is not required for the normal web-update path when the software jump is implemented correctly.
 
 After the transition, the web updater:
 
@@ -58,10 +79,12 @@ After the transition, the web updater:
 2. Sends bootloader synchronization byte `0x7F`.
 3. Expects ACK `0x79`.
 4. Issues `Get ID` and requires PID `0x469`.
-5. Performs Extended Erase.
+5. Erases the flash region required by the firmware image.
 6. Programs the firmware at `0x08000000` in blocks of up to 256 bytes.
 7. Reads the programmed image back and byte-compares it.
 8. Sends `GO 0x08000000`.
+
+> Production note: avoid a full mass erase if calibration, serial-number, configuration, EEPROM-emulation or other persistent data is stored elsewhere in internal flash. In that case the updater must erase only the application pages/banks that belong to the firmware image.
 
 ## Firmware manifest
 
@@ -104,6 +127,11 @@ Notes:
 5. Update `firmware-manifest.json` with product, hardware revision, version, MCU PID, URL and SHA-256.
 6. Publish GitHub Pages from `/docs` on the default branch.
 
-## Important integration check
+## Hardware integration status
 
-Before production use, confirm which STM32 UART and GPIO pins are physically connected to the FT234XD. Application UART operation does **not** automatically guarantee that the same pins are one of the STM32 ROM bootloader UART mappings.
+The FT234XD UART connection is confirmed compatible with the STM32G474 ROM bootloader:
+
+- `PA2 = USART2_TX`
+- `PA3 = USART2_RX`
+
+The remaining integration work is firmware-side: implement and bench-test `ZN_INFO?`, `ZN_BOOT`, and the system-memory jump before enabling production firmware targets in the manifest.
