@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#090b0f" />
+  <meta name="description" content="ZeroNoise Clear Voice firmware update center" />
+  <title>ZeroNoise Clear Voice | Firmware Update</title>
+  <link rel="preconnect" href="https://www.racingforce.com" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand-lockup" aria-label="ZeroNoise and Racing Force Group">
+        <img class="logo zn-logo" src="https://www.racingforce.com/wp-content/uploads/2025/05/zn-brand-logo-white-600x130.png" alt="ZeroNoise" />
+        <span class="brand-divider" aria-hidden="true"></span>
+        <img class="logo rfg-logo" src="https://www.racingforce.com/wp-content/uploads/2024/02/footer-logo-2.png" alt="Racing Force Group" />
+      </div>
+
+      <div class="topbar-actions">
+        <div id="connectionPill" class="status-pill offline">
+          <span class="status-dot"></span>
+          <span data-i18n="usbDisconnected">USB disconnected</span>
+        </div>
+        <label class="language-picker" aria-label="Language">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0 0c2.1-2.45 3.2-5.45 3.2-9S14.1 5.45 12 3m0 18c-2.1-2.45-3.2-5.45-3.2-9S9.9 5.45 12 3M3.6 9h16.8M3.6 15h16.8"/></svg>
+          <select id="languageSelect">
+            <option value="en">EN</option>
+            <option value="it">IT</option>
+            <option value="de">DE</option>
+            <option value="fr">FR</option>
+            <option value="es">ES</option>
+          </select>
+        </label>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div>
+        <p class="eyebrow">CLEAR VOICE SYSTEMS</p>
+        <h1 data-i18n="title">Firmware Update Center</h1>
+        <p class="hero-copy" data-i18n="subtitle">Connect your ZeroNoise device, check the installed firmware and update safely from the official GitHub repository.</p>
+      </div>
+      <div class="hero-mark" aria-hidden="true">
+        <div class="hero-ring ring-1"></div>
+        <div class="hero-ring ring-2"></div>
+        <div class="hero-core">ZN</div>
+      </div>
+    </section>
+
+    <section id="browserWarning" class="warning hidden" role="alert">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4m0 4h.01M10.3 3.5 2.6 17a2 2 0 0 0 1.74 3h15.32a2 2 0 0 0 1.74-3L13.7 3.5a2 2 0 0 0-3.4 0Z"/></svg>
+      <div><strong data-i18n="browserUnsupportedTitle">Browser not supported</strong><span data-i18n="browserUnsupportedText">Use a recent version of Google Chrome or Microsoft Edge on desktop.</span></div>
+    </section>
+
+    <section class="layout">
+      <div class="card device-card">
+        <div class="card-head">
+          <div>
+            <p class="card-kicker" data-i18n="device">DEVICE</p>
+            <h2 data-i18n="deviceStatus">Device status</h2>
+          </div>
+          <div id="deviceIcon" class="device-icon idle">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v4m8-4v4M5 9h14v9a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V9Zm3 4h.01M12 13h.01M16 13h.01"/></svg>
+          </div>
+        </div>
+
+        <div class="device-visual">
+          <div class="signal-stack" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
+          <div class="device-name-wrap">
+            <span class="device-caption" data-i18n="detectedProduct">Detected product</span>
+            <strong id="productValue">—</strong>
+          </div>
+        </div>
+
+        <dl class="spec-grid">
+          <div><dt data-i18n="mcu">MCU</dt><dd id="mcuValue">STM32G474CEU6</dd></div>
+          <div><dt data-i18n="serial">Serial number</dt><dd id="serialValue">—</dd></div>
+          <div><dt data-i18n="hardware">Hardware</dt><dd id="hardwareValue">—</dd></div>
+          <div><dt data-i18n="installed">Installed</dt><dd id="installedValue">—</dd></div>
+        </dl>
+
+        <button id="connectButton" class="btn btn-primary btn-large">
+          <span class="btn-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v4m8-4v4M5 9h14v4a7 7 0 0 1-14 0V9Zm7 11v2"/></svg></span>
+          <span data-i18n="connect">Connect device</span>
+        </button>
+
+        <p class="microcopy" data-i18n="connectHint">The browser will ask permission to access the FT234XD USB serial interface.</p>
+      </div>
+
+      <div class="card update-card">
+        <div class="card-head">
+          <div>
+            <p class="card-kicker" data-i18n="firmware">FIRMWARE</p>
+            <h2 data-i18n="updateStatus">Update status</h2>
+          </div>
+          <button id="refreshReleaseButton" class="icon-button" title="Refresh">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 5v6h-6"/></svg>
+          </button>
+        </div>
+
+        <div class="version-compare">
+          <div class="version-block">
+            <span data-i18n="currentVersion">Current version</span>
+            <strong id="currentVersionValue">—</strong>
+          </div>
+          <div class="compare-arrow">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg>
+          </div>
+          <div class="version-block accent">
+            <span data-i18n="latestVersion">Latest version</span>
+            <strong id="latestVersionValue">—</strong>
+          </div>
+        </div>
+
+        <div id="releasePanel" class="release-panel">
+          <div class="release-state">
+            <span id="releaseBadge" class="release-badge neutral" data-i18n="checkingRepository">Checking repository…</span>
+            <span id="releaseSource">GitHub · zeronoise-zn/zn-clear-voice</span>
+          </div>
+          <p id="releaseNotes" class="release-notes" data-i18n="releaseWaiting">Connect a device to compare firmware versions.</p>
+        </div>
+
+        <div class="progress-zone">
+          <div class="progress-topline">
+            <span id="progressLabel" data-i18n="ready">Ready</span>
+            <strong id="progressPercent">0%</strong>
+          </div>
+          <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+          <div class="progress-meta">
+            <span id="progressDetail" data-i18n="waitingForDevice">Waiting for device</span>
+            <span id="progressBytes">—</span>
+          </div>
+        </div>
+
+        <button id="updateButton" class="btn btn-update btn-large" disabled>
+          <span class="btn-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14"/></svg></span>
+          <span data-i18n="updateFirmware">Update firmware</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="card process-card">
+      <div class="card-head process-head">
+        <div>
+          <p class="card-kicker" data-i18n="updateProcess">UPDATE PROCESS</p>
+          <h2 data-i18n="safeGuidedUpdate">Safe, guided update</h2>
+        </div>
+        <span class="secure-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.9 8 7 10 4.1-2 7-5.3 7-10V6l-7-3Zm-3 9 2 2 4-4"/></svg><span data-i18n="shaVerified">SHA-256 verified</span></span>
+      </div>
+
+      <div class="steps" id="steps">
+        <div class="step active" data-step="connect"><span>1</span><div><strong data-i18n="stepConnect">Connect</strong><small data-i18n="stepConnectSub">Detect USB device</small></div></div>
+        <div class="step" data-step="check"><span>2</span><div><strong data-i18n="stepCheck">Check</strong><small data-i18n="stepCheckSub">Compare versions</small></div></div>
+        <div class="step" data-step="flash"><span>3</span><div><strong data-i18n="stepFlash">Update</strong><small data-i18n="stepFlashSub">Program flash</small></div></div>
+        <div class="step" data-step="verify"><span>4</span><div><strong data-i18n="stepVerify">Verify</strong><small data-i18n="stepVerifySub">Read-back check</small></div></div>
+        <div class="step" data-step="restart"><span>5</span><div><strong data-i18n="stepRestart">Restart</strong><small data-i18n="stepRestartSub">Confirm firmware</small></div></div>
+      </div>
+    </section>
+
+    <section class="bottom-grid">
+      <details class="card details-card">
+        <summary>
+          <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"/></svg><strong data-i18n="technicalLog">Technical log</strong></span>
+          <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg>
+        </summary>
+        <pre id="technicalLog">Updater initialized.</pre>
+      </details>
+
+      <details class="card details-card">
+        <summary>
+          <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9M12 7v5l3 2"/></svg><strong data-i18n="advanced">Advanced</strong></span>
+          <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg>
+        </summary>
+        <div class="advanced-content">
+          <label class="check-row"><input id="manualBootloaderToggle" type="checkbox" /><span data-i18n="alreadyBootloader">Device is already in STM32 bootloader mode</span></label>
+          <label class="file-row"><span data-i18n="localFirmware">Local firmware (.bin)</span><input id="localFirmwareInput" type="file" accept=".bin,application/octet-stream" /></label>
+          <p data-i18n="advancedWarning">Local firmware bypasses GitHub release selection. MCU and SHA checks are still performed when possible.</p>
+        </div>
+      </details>
+    </section>
+
+    <footer>
+      <span>ZeroNoise · Racing Force S.p.A.</span>
+      <span>STM32G474CEU6 · FT234XD · Web Serial</span>
+    </footer>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
