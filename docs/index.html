@@ -131,7 +131,15 @@
           <p id="releaseNotes" class="release-notes" data-i18n="releaseWaiting">Connect a device to compare firmware versions.</p>
         </div>
 
-        <div class="progress-zone">
+        <div class="package-picker">
+          <label class="file-row"><span data-i18n="localFirmware">Signed firmware (.znfw)</span><input id="localFirmwareInput" type="file" accept=".znfw" /></label>
+          <pre id="packageInfo" role="status" aria-live="polite">No package selected.</pre>
+          <p class="microcopy">The bootloader verifies authenticity before installation. Browser checks do not verify the signature.</p>
+        </div>
+
+        <div class="progress-zone" aria-live="polite">
+          <p id="transferStatus">TRANSFER NOT STARTED</p>
+          <p id="installationStatus">UPDATE NOT CONFIRMED</p>
           <div class="progress-topline">
             <span id="progressLabel" data-i18n="ready">Ready</span>
             <strong id="progressPercent">0%</strong>
@@ -147,6 +155,12 @@
           <span class="btn-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14"/></svg></span>
           <span data-i18n="updateFirmware">Update firmware</span>
         </button>
+        <div class="recovery-actions">
+          <button id="diagnosticsButton" class="btn" disabled>Read diagnostics (no flash)</button>
+          <button id="abortButton" class="btn" disabled>Abort transfer</button>
+          <button id="restartButton" class="btn" disabled>Restart device</button>
+        </div>
+        <p class="microcopy">First hardware test pending. Check power hold, reset transients and watchdog option-byte configuration before installation. See the <a href="./UPDATER_PROTOCOL.md">integration notes</a>.</p>
       </div>
     </section>
 
@@ -175,6 +189,8 @@
           <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg>
         </summary>
         <pre id="technicalLog">Updater initialized.</pre>
+        <button id="downloadLogButton" class="btn">Download debug log</button>
+        <pre id="diagnosticInfo">No device diagnostics read.</pre>
       </details>
 
       <details class="card details-card">
@@ -183,9 +199,9 @@
           <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg>
         </summary>
         <div class="advanced-content">
-          <label class="check-row"><input id="manualBootloaderToggle" type="checkbox" /><span data-i18n="alreadyBootloader">Device is already in STM32 bootloader mode</span></label>
-          <label class="file-row"><span data-i18n="localFirmware">Local firmware (.bin)</span><input id="localFirmwareInput" type="file" accept=".bin,application/octet-stream" /></label>
-          <p data-i18n="advancedWarning">Local firmware bypasses GitHub release selection. MCU and SHA checks are still performed when possible.</p>
+          <p data-i18n="alreadyBootloader">ClearVoice recovery (not STM32 ROM)</p>
+          <p>Application or recovery is detected automatically at 230400 8N1. Reconnect explicitly after an interrupted transfer. Abort does not undo a committed package.</p>
+          <p data-i18n="advancedWarning">Structure and SHA-256 checked; the bootloader verifies the signature.</p>
         </div>
       </details>
     </section>
