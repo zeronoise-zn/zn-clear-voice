@@ -13,9 +13,16 @@
 <body>
   <main class="page-shell">
     <header class="topbar">
-      <a class="brand" href="https://zeronoisedevices.com/" target="_blank" rel="noopener noreferrer" aria-label="ZeroNoise official website">
-        <img src="https://zeronoisedevices.com/wp-content/uploads/2026/02/zn-logo-2.png" alt="ZeroNoise" />
-      </a>
+      <div class="brand-lockup" aria-label="ZeroNoise and Racing Force Group">
+        <a class="brand brand-zn" href="https://zeronoisedevices.com/" target="_blank" rel="noopener noreferrer" aria-label="ZeroNoise official website" title="ZeroNoise">
+          <img src="https://zeronoisedevices.com/wp-content/uploads/2026/02/zn-logo-2.png" alt="ZeroNoise" />
+        </a>
+        <span class="brand-divider" aria-hidden="true"></span>
+        <a class="brand brand-rfg" href="https://www.racingforce.com/" target="_blank" rel="noopener noreferrer" aria-label="Racing Force Group official website" title="Racing Force Group">
+          <img src="https://www.racingforce.com/wp-content/uploads/2024/02/footer-logo-2.png" alt="Racing Force Group" />
+        </a>
+      </div>
+
       <div class="topbar-actions">
         <div id="connectionPill" class="status-pill offline">
           <span class="status-dot"></span>
@@ -35,12 +42,9 @@
     </header>
 
     <section class="hero">
-      <div class="hero-copy-wrap">
-        <span class="eyebrow">CLEARVOICE</span>
-        <h1 data-i18n="title">Firmware Update Center</h1>
-        <p id="publicSubtitle" class="hero-copy">Connect your ClearVoice. The latest official firmware is selected automatically, or you can choose a previous version.</p>
-      </div>
-      <div class="hero-symbol" aria-hidden="true">CV</div>
+      <span class="eyebrow">CLEARVOICE</span>
+      <h1 data-i18n="title">Firmware Update Center</h1>
+      <p id="publicSubtitle" class="hero-copy">Connect your ClearVoice. The latest official firmware is selected automatically, or you can choose a previous version.</p>
     </section>
 
     <section id="browserWarning" class="warning hidden" role="alert">
@@ -50,28 +54,41 @@
 
     <section class="main-card card">
       <div class="connect-zone">
+        <div class="zone-title-row">
+          <span class="eyebrow" data-i18n="device">DEVICE</span>
+          <span class="zone-status">USB</span>
+        </div>
+
         <div class="device-summary">
           <div id="deviceIcon" class="device-icon idle" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M8 3v4m8-4v4M5 9h14v9a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V9Z"/></svg>
           </div>
-          <div>
+          <div class="device-copy">
             <span class="summary-label" data-i18n="detectedProduct">Detected product</span>
             <strong id="productValue" class="product-name">—</strong>
-            <div class="device-meta">
-              <span><b data-i18n="hardware">Hardware</b> <span id="hardwareValue">—</span></span>
-              <span><b data-i18n="installed">Installed</b> <span id="installedValue">—</span></span>
-            </div>
           </div>
         </div>
+
+        <dl class="device-facts">
+          <div><dt data-i18n="hardware">Hardware</dt><dd id="hardwareValue">—</dd></div>
+          <div><dt data-i18n="installed">Installed</dt><dd id="installedValue">—</dd></div>
+          <div><dt>MCU</dt><dd id="mcuValue">STM32G474CEU6</dd></div>
+          <div><dt data-i18n="serial">Serial number</dt><dd id="serialValue">—</dd></div>
+        </dl>
 
         <button id="connectButton" class="btn btn-connect">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v4m8-4v4M5 9h14v4a7 7 0 0 1-14 0V9Zm7 11v2"/></svg>
           <span data-i18n="connect">Connect device</span>
         </button>
         <p class="connect-help" data-i18n="connectHint">The browser will ask permission to access the FT234XD USB serial interface.</p>
+
+        <div class="site-links" aria-label="Official websites">
+          <a href="https://zeronoisedevices.com/" target="_blank" rel="noopener noreferrer">ZeroNoise ↗</a>
+          <a href="https://www.racingforce.com/" target="_blank" rel="noopener noreferrer">Racing Force ↗</a>
+        </div>
       </div>
 
-      <div class="divider"></div>
+      <div class="divider" aria-hidden="true"></div>
 
       <div class="update-zone">
         <div class="section-head">
@@ -124,34 +141,30 @@
         </button>
         <p class="safety-copy">Do not disconnect USB or power while the update is running.</p>
       </div>
-    </section>
 
-    <details class="support card">
-      <summary>Support &amp; diagnostics</summary>
-      <div class="support-grid">
-        <div>
-          <h3>Device details</h3>
-          <dl class="support-list">
-            <div><dt>MCU</dt><dd id="mcuValue">STM32G474CEU6</dd></div>
-            <div><dt>Serial</dt><dd id="serialValue">—</dd></div>
-          </dl>
-          <div class="recovery-actions">
+      <details class="support-inline">
+        <summary>Support &amp; diagnostics</summary>
+        <div class="support-grid">
+          <div class="support-actions">
             <button id="diagnosticsButton" class="btn btn-secondary" disabled>Read diagnostics</button>
             <button id="abortButton" class="btn btn-secondary" disabled>Abort transfer</button>
             <button id="restartButton" class="btn btn-secondary" disabled>Restart device</button>
           </div>
+          <div class="support-log">
+            <pre id="technicalLog">Updater initialized.</pre>
+            <button id="downloadLogButton" class="btn btn-secondary">Download log</button>
+            <pre id="diagnosticInfo">No device diagnostics read.</pre>
+          </div>
         </div>
-        <div>
-          <h3 data-i18n="technicalLog">Technical log</h3>
-          <pre id="technicalLog">Updater initialized.</pre>
-          <button id="downloadLogButton" class="btn btn-secondary">Download log</button>
-          <pre id="diagnosticInfo">No device diagnostics read.</pre>
-        </div>
-      </div>
-    </details>
+      </details>
+    </section>
 
     <footer>
-      <span>ZeroNoise · Racing Force S.p.A.</span>
+      <span>
+        <a href="https://zeronoisedevices.com/" target="_blank" rel="noopener noreferrer">ZeroNoise</a>
+        <span aria-hidden="true"> · </span>
+        <a href="https://www.racingforce.com/" target="_blank" rel="noopener noreferrer">Racing Force S.p.A.</a>
+      </span>
       <span>Official ClearVoice firmware updater</span>
     </footer>
 
