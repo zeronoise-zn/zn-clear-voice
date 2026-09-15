@@ -6,21 +6,25 @@
     const hint = document.getElementById('firmwareVersionHint');
     if (!panel || !hint) return false;
 
-    if (hint.parentElement !== panel) panel.insertBefore(hint, panel.firstChild);
+    if (hint.parentElement !== panel || panel.firstElementChild !== hint) {
+      panel.insertBefore(hint, panel.firstChild);
+    }
     panel.classList.add('public-release-layout');
     return true;
   }
 
   function start() {
-    if (arrangeReleasePanel()) return;
-
     const root = document.querySelector('.update-zone') || document.body;
-    const observer = new MutationObserver(() => {
-      if (arrangeReleasePanel()) observer.disconnect();
-    });
+
+    // Keep the public layout stable even if the firmware selector refreshes or
+    // another script updates the status nodes after connection/version changes.
+    const observer = new MutationObserver(() => arrangeReleasePanel());
     observer.observe(root, { childList: true, subtree: true });
 
-    setTimeout(() => observer.disconnect(), 5000);
+    arrangeReleasePanel();
+    requestAnimationFrame(arrangeReleasePanel);
+    setTimeout(arrangeReleasePanel, 100);
+    setTimeout(arrangeReleasePanel, 500);
   }
 
   if (document.readyState === 'loading') {
