@@ -14,4 +14,4 @@ Example:
 
 The updater reads this folder through the GitHub Contents API, extracts versions from filenames, sorts them numerically, selects the newest version by default, and keeps previous published versions selectable.
 
-Do not publish BIN, HEX, ELF, private keys, unsigned packages, or internal RTX assets here.
+Do not publish BIN, HEX, ELF, private key or unsigned packages
