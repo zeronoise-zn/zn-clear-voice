@@ -18,6 +18,15 @@ export class SerialTransport {
     this.reader = this.port.readable.getReader(); this.writer = this.port.writable.getWriter();
     this.readTask = this.readLoop();
   }
+  async reopenAt(baudRate) {
+    if (!Number.isInteger(baudRate) || baudRate <= 0) throw new UpdateError('SERIAL_OPEN_FAILED', 'Invalid baud rate.');
+    if (this.pending) throw new UpdateError('BUSY', 'Cannot change baud rate while a request is outstanding.');
+    if (this.connected || this.reader || this.writer) await this.close();
+    this.baudRate = baudRate;
+    this.modeSet('text');
+    this.trace('EVENT', `Serial baud switch: ${baudRate}`);
+    await this.open();
+  }
   modeSet(mode) { this.mode = mode; this.buffer = []; this.discard = false; }
   fail(error) {
     this.trace('EVENT', `Serial disconnected/error: ${error.message}`);
@@ -77,6 +86,12 @@ export class SerialTransport {
     finally { clearTimeout(timer); }
   }
   async text(command, predicate, timeout = 1800) {
+    // Application console is always 230400. After a recovery session the same
+    // granted Web Serial port may still be open at the legacy 115200 rate.
+    // Switch back before querying application/runtime state; no permission
+    // prompt is required because the SerialPort object is unchanged.
+    if ((command.includes('ZN_INFO?') || command.includes('ZN_STATS?')) && this.baudRate !== 230400)
+      await this.reopenAt(230400);
     this.trace('TX', command.replace(/\n/g,'\\n'));
     this.modeSet('text'); return this.exchange(new TextEncoder().encode(command), predicate, timeout);
   }
@@ -107,9 +122,24 @@ export class SerialTransport {
     }
   }
   async hello() {
-    this.modeSet('binary'); await this.write(new Uint8Array([0]));
-    const r = await this.request(1, undefined, { sequence: 0, timeout: 1800, retries: 1 });
-    this.sequence = 1; return r;
+    // Deployed v1.1.0 units use a 115200 recovery bootloader, while current
+    // recovery builds use 230400. Probe both on the already-authorized port.
+    const rates = [...new Set([this.baudRate, 115200, 230400])];
+    let lastError = null;
+    for (const baudRate of rates) {
+      try {
+        if (this.baudRate !== baudRate) await this.reopenAt(baudRate);
+        this.modeSet('binary'); await this.write(new Uint8Array([0]));
+        const r = await this.request(1, undefined, { sequence: 0, timeout: 1800, retries: 0 });
+        this.sequence = 1;
+        this.trace('EVENT', `Recovery detected: ${baudRate} 8N1`);
+        return r;
+      } catch (e) {
+        lastError = e;
+        if (e.code !== 'TRANSFER_TIMEOUT' && e.code !== 'SERIAL_DISCONNECTED' && e.code !== 'SERIAL_OPEN_FAILED') throw e;
+      }
+    }
+    throw lastError || new UpdateError('TRANSFER_TIMEOUT', 'Recovery bootloader not detected at 115200 or 230400.');
   }
   async close() {
     this.trace('EVENT', 'Serial close requested');
@@ -120,6 +150,6 @@ export class SerialTransport {
     try { await this.writer?.abort(); } catch { /* Removed device. */ }
     try { this.writer?.releaseLock(); } catch { /* Already released. */ }
     try { await this.port.close(); } catch { /* Already closed/removed. */ }
-    this.reader = this.writer = null;
+    this.reader = this.writer = this.readTask = null;
   }
 }
