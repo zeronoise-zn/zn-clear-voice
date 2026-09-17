@@ -6,7 +6,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 export function appInfo(line) {
   try {
     const o = JSON.parse(line);
-    if (o.product !== 'ClearVoice' || !/^REV\d\d$/.test(o.hardware) || !/^\d+\.\d+\.\d+\.\d+$/.test(o.firmware) ||
+    if (o.product !== 'ClearVoice' || !/^REV\d\d$/.test(o.hardware) || !/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(o.firmware) ||
         !/^[a-f0-9]{40,64}$/i.test(o.git) || ![0,1].includes(o.dirty) || ![0,1].includes(o.shallow)) return null;
     return { ...o, version: o.firmware, mode: 'application',
       displayId: `${o.firmware}-${o.git.slice(0,12)}${o.dirty ? '-dirty' : ''}` };
