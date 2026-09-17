@@ -8,10 +8,24 @@ export class UpdateError extends Error {
 }
 export const hex = bytes => Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
 export const sha256 = async bytes => hex(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)));
+
+// ZNFW128 keeps the existing four uint16 version fields for binary compatibility:
+// major.minor.patch.build. New ClearVoice releases expose major.minor.build while
+// keeping patch=0 internally. Legacy four-part identities remain accepted.
+export function versionForms(value) {
+  const parts = Array.isArray(value) ? value.map(Number) : String(value).split('.').map(Number);
+  if (parts.length !== 4 || parts.some(n => !Number.isInteger(n) || n < 0 || n > 0xffff)) return null;
+  const legacy = parts.join('.');
+  const compact = parts[2] === 0 ? `${parts[0]}.${parts[1]}.${parts[3]}` : legacy;
+  return { parts, legacy, compact };
+}
+
 // Current ClearVoice ARM32 clearvoice_identity_t ABI, not a ZNFW header extension.
 // Require one fully coherent object and bounded in-image string pointers. Unknown
 // or ambiguous future ABIs must never fall back to a filename/version-only match.
-export function compiledIdentity(payload, version, packageMask) {
+export function compiledIdentity(payload, headerVersion, packageMask) {
+  const forms = versionForms(headerVersion);
+  if (!forms) return null;
   const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
   const base = 0x08008000, matches = [];
   function stringAt(pointer, limit) {
@@ -25,13 +39,14 @@ export function compiledIdentity(payload, version, packageMask) {
     return end < payload.length && end - start <= limit && payload[end] === 0 ? new TextDecoder().decode(payload.subarray(start,end)) : null;
   }
   for (let offset = 0; offset + 32 <= payload.length; offset += 4) {
-    if ([0,2,4,6].map(n => view.getUint16(offset+n,true)).join('.') !== version) continue;
+    const tuple = [0,2,4,6].map(n => view.getUint16(offset+n,true));
+    if (!tuple.every((n,i) => n === forms.parts[i])) continue;
     const mask = view.getUint32(offset+8,true), rev = payload[offset+12], dirty = payload[offset+13], shallow = payload[offset+14];
     if (rev < 1 || rev > 32 || mask !== ((1 << (rev-1)) >>> 0) || !(mask & packageMask) || dirty > 1 || shallow > 1) continue;
     const [v,git,buildId,hardware] = [16,20,24,28].map((n,i) => stringAt(view.getUint32(offset+n,true),[23,64,94,5][i]));
-    if (v !== version || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(git || '') || hardware !== `REV${String(rev).padStart(2,'0')}`) continue;
-    if (buildId !== `${version}-${git.slice(0,12)}${dirty ? '-dirty' : ''}${shallow ? '-shallow' : ''}`) continue;
-    matches.push({version,git,buildId,hardware,hardwareMask:mask,dirty,shallow,offset,abi:'clearvoice_identity_t_ARM32'});
+    if ((v !== forms.legacy && v !== forms.compact) || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(git || '') || hardware !== `REV${String(rev).padStart(2,'0')}`) continue;
+    if (buildId !== `${v}-${git.slice(0,12)}${dirty ? '-dirty' : ''}${shallow ? '-shallow' : ''}`) continue;
+    matches.push({version:v,headerVersion:forms.legacy,git,buildId,hardware,hardwareMask:mask,dirty,shallow,offset,abi:'clearvoice_identity_t_ARM32'});
   }
   return matches.length === 1 ? matches[0] : null;
 }
@@ -62,8 +77,9 @@ export async function inspectPackage(buffer, filename) {
     if (entry && (!(entry & 1) || address < 0x08008000 || address >= 0x08008000 + imageSize))
       throw new UpdateError('INVALID_HEADER', `Invalid vector ${i}.`);
   }
-  const version = [16, 18, 20, 22].map(n => v.getUint16(n, true)).join('.');
+  const headerVersion = [16, 18, 20, 22].map(n => v.getUint16(n, true)).join('.');
+  const identity = compiledIdentity(payload, headerVersion, hardwareMask);
   return { bytes, header, payload, product, hardwareMask, imageSize, minimumBootloader,
-    version, identity: compiledIdentity(payload, version, hardwareMask),
+    version: identity?.version || headerVersion, headerVersion, identity,
     filename, payloadHash, packageHash: await sha256(bytes), signatureVerified: false };
 }
