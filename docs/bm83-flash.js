@@ -1,3 +1,22 @@
+/*
+ * Copyright (c) 2026 Racing Force S.p.A.
+ * All rights reserved.
+ *
+ * Author: Oscar Tofanelli
+ *
+ * PROPRIETARY AND CONFIDENTIAL
+ *
+ * This software, excluding third-party libraries and components governed by
+ * their respective license terms, is the exclusive property of Racing Force S.p.A.
+ *
+ * Any unauthorized use, modification, reproduction, distribution, disclosure,
+ * publication, transfer, or sharing of this software, in whole or in part,
+ * is strictly prohibited without the prior written consent of Racing Force S.p.A.
+ *
+ * This notice shall not alter or supersede the applicable license terms of any
+ * third-party software, libraries, or components included in or used by this project.
+ */
+
 /**
  * Programmatore USB TEST/SPI del BM83, limitato alla SST26VF016B identificata.
  * Il piano separa header, runtime, configurazione, MCU e DSP; la calibrazione

@@ -4,6 +4,11 @@ La pagina viene servita direttamente dalla cartella `docs/`; non esiste un
 bundle generato o un progetto npm da compilare. I moduli JS usano import ESM.
 I file firmware pubblicati e i manifest non vengono aggiornati dai test.
 
+Per i nuovi sorgenti del team usare il testo di
+[`COPYRIGHT_HEADER.txt`](../COPYRIGHT_HEADER.txt), adattando solo i delimitatori
+dei commenti al linguaggio. Conservare avvisi e licenze dei componenti di terze
+parti. I file JSON non ammettono commenti e le immagini firmware restano inalterate.
+
 L'[audit del sistema HEADSET_BT](https://github.com/zeronoise-zn/Headset_BT/blob/master/docs/AUDIT_CODICE_2026-11-11.md)
 riporta problemi corretti, verifiche e collaudi ancora necessari.
 La [guida per leggere e modificare il codice](https://github.com/zeronoise-zn/Headset_BT/blob/master/docs/ARCHITETTURA_E_MANUTENZIONE.md)

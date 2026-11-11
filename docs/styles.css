@@ -1,3 +1,22 @@
+/*
+ * Copyright (c) 2026 Racing Force S.p.A.
+ * All rights reserved.
+ *
+ * Author: Oscar Tofanelli
+ *
+ * PROPRIETARY AND CONFIDENTIAL
+ *
+ * This software, excluding third-party libraries and components governed by
+ * their respective license terms, is the exclusive property of Racing Force S.p.A.
+ *
+ * Any unauthorized use, modification, reproduction, distribution, disclosure,
+ * publication, transfer, or sharing of this software, in whole or in part,
+ * is strictly prohibited without the prior written consent of Racing Force S.p.A.
+ *
+ * This notice shall not alter or supersede the applicable license terms of any
+ * third-party software, libraries, or components included in or used by this project.
+ */
+
 :root {
   color-scheme: dark;
   --bg: #061019;
