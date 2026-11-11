@@ -148,19 +148,26 @@
         <h2 id="bm83Title">BM83 · Firmware audio</h2>
         <p>Funzione in collaudo: il collegamento UART è verificato, il ciclo completo di programmazione BM83 resta da validare.</p>
         <p>Caricamento tramite USB → STM32 → UART. Mantieni il BM83 alimentato, interrompi chiamate e riproduzione.</p>
-        <p>Seleziona un file <strong>Rehex BM83 General Use</strong> generato con isUpdate. Il caricamento avviene tramite MCU DFU; i file OTA cifrati non sono supportati.</p>
+        <p>Seleziona un file <strong>Rehex BM83 Full Image for general DFU</strong> generato con isUpdate. La programmazione TEST salva un backup della Flash e verifica i dati riletti. I file OTA cifrati non sono supportati.</p>
+        <label for="bm83Protocol">Modalità di caricamento</label>
+        <select id="bm83Protocol">
+          <option value="TEST" selected>Embedded: programmazione TEST</option>
+          <option value="APP">Host UART: MCU DFU (collaudo)</option>
+        </select>
         <label for="bm83File">Firmware BM83 (.hex)</label>
         <input id="bm83File" type="file" accept=".hex,.HEX" />
         <div class="support-actions">
           <button id="bm83Probe" class="btn btn-secondary" disabled>Verifica collegamento BM83</button>
           <button id="bm83Reset" class="btn btn-secondary" disabled>Riavvia BM83</button>
           <button id="bm83Update" class="btn btn-secondary" disabled>Carica firmware BM83</button>
+          <button id="bm83Cancel" class="btn btn-secondary" disabled>Interrompi caricamento</button>
+          <button id="bm83BackupDownload" class="btn btn-secondary">Scarica ultimo backup Flash</button>
         </div>
         <progress id="bm83Progress" max="100" value="0" aria-label="Avanzamento BM83"></progress>
         <p id="bm83Status" role="status">Installa sullo STM32 il firmware con supporto BM83, poi seleziona il file audio.</p>
-        <p id="bm83Rate">Caricamento MCU DFU: UART 115.200 baud.</p>
+        <p id="bm83Rate">Programmazione TEST: UART 921.600 baud.</p>
         <div class="support-actions">
-          <label for="bm83Baud">Velocità da verificare in modalità programmazione</label>
+          <label for="bm83Baud">Velocità UART TEST</label>
           <select id="bm83Baud">
             <option value="921600" selected>921.600 baud</option>
             <option value="460800">460.800 baud</option>
@@ -169,7 +176,7 @@
           </select>
           <button id="bm83FastProbe" class="btn btn-secondary" disabled>Verifica UART veloce</button>
         </div>
-        <p>Massimo TEST: 921.600 baud. La prova verifica 32 volte le identità ROM e Flash, poi riavvia il BM83 in modalità normale. Il caricamento MCU DFU resta a 115.200 baud.</p>
+        <p>Se il caricamento TEST si interrompe, il BM83 resta in reset: ripeti la programmazione per recuperarlo. Il backup resta salvato in questo browser. Il pulsante di verifica UART esegue solo letture.</p>
         <details id="bm83LogPanel" open>
           <summary>Log collaudo BM83</summary>
           <pre id="bm83Log" aria-label="Log collaudo BM83">Pronto. Nessun trasferimento avviato.</pre>

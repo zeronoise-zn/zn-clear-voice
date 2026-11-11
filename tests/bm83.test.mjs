@@ -237,3 +237,11 @@ test('Failed TEST baud negotiation never switches host baud and releases bridge'
   await assert.rejects(updater.testUart(),/BM83_HCI_NACK/);
   assert.equal(switched,false);assert.equal(closed,true);assert.equal(updater.busy,false);
 });
+
+test('Application baud detection only reads versions and clears stale parser data between explicit host rates',async()=>{
+  const bridge=new Bm83Bridge({}),calls=[];
+  bridge.rpc=async c=>{calls.push(c);bridge.rate=Number(c.split(' ').at(-1));return '[BM83] BAUD='+bridge.rate;};
+  bridge.version=async()=>{if(bridge.rate!==921600)throw new Error('UART_FAULT');return '2.9';};
+  assert.deepEqual(await bridge.detectAppBaud(),{baud:921600,version:'2.9'});
+  assert.deepEqual(calls,['ZN_BM83_APP_BAUD 115200','ZN_BM83_APP_BAUD 921600']);
+});

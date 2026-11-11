@@ -4,6 +4,8 @@ import { FirmwareUpdater, diagnosticLine } from './fw-updater.js';
 import { profileByName } from './product-profiles.js';
 import { inspectBm83Image } from './bm83-image.js';
 import { Bm83Updater } from './bm83-updater.js';
+import { Bm83FlashUpdater,planBm83Flash } from './bm83-flash.js';
+import {saveBm83Backup,latestBm83Backup} from './bm83-backup.js';
 
 const PRODUCT_DISPLAY_NAMES = new Map([
   ['ClearVoice', 'ClearVoice Portable Unit'],
@@ -41,7 +43,7 @@ export function startUi(translations, config) {
   let selecting = false, manifestLoading = false, selectionError = false, packageSource = null;
   let lastAttempt = null;
   let applicationDiagnostics = {};
-  let bm83=null, bm83Image=null, bm83Selecting=false;
+  let bm83=null, bm83Flash=null, bm83Image=null, bm83FlashImage=null, bm83Selecting=false;
   const bm83Log=[];let bm83LogBytes=0,bm83LogDropped=0,bm83LogRender=0;
   function bm83Record(event) {
     const record={time:new Date().toISOString(),...event,error:event.error instanceof Error?event.error.message:event.error};
@@ -56,8 +58,9 @@ export function startUi(translations, config) {
     const node = $('technicalLog'); node.textContent = (node.textContent + `\n${new Date().toISOString()} ${message} ${detail}`).slice(-524288);
     node.scrollTop = node.scrollHeight;
   };
-  const busy = () => selecting || manifestLoading || updater?.busy || bm83?.busy || bm83Selecting;
+  const busy = () => selecting || manifestLoading || updater?.busy || bm83?.busy || bm83Flash?.busy || bm83Selecting;
   function trace(direction,detail) {
+    if(bm83Flash?.busy && /^(?:ZN_BM83_(?:TX |RX\?)|\[BM83\] (?:DATA=|TX=OK))/.test(detail))return;
     log(direction,detail);
     if (direction === 'TX' && detail.includes('ZN_STATS?')) {
       applicationDiagnostics = {};
@@ -86,10 +89,13 @@ export function startUi(translations, config) {
     $('bm83Panel').hidden=!headset;
     $('bm83File').disabled=locked;
     $('bm83Probe').disabled=!connected || locked || !headset;
-    const bridgeReady=[1,2].includes(updater?.info?.bm83_bridge);
+    const bridgeReady=[1,2,3].includes(updater?.info?.bm83_bridge);
     $('bm83Reset').disabled=!connected || locked || !headset || !bridgeReady;
-    $('bm83Update').disabled=!connected || locked || !headset || !bm83Image || !bridgeReady;
-    $('bm83FastProbe').disabled=!connected || locked || !headset || updater?.info?.bm83_bridge!==2;
+    const testMode=$('bm83Protocol').value==='TEST';
+    $('bm83Update').disabled=!connected || locked || !headset || !bm83Image || !bridgeReady || testMode && (!bm83FlashImage || updater?.info?.bm83_bridge!==3);
+    $('bm83FastProbe').disabled=!connected || locked || !headset || ![2,3].includes(updater?.info?.bm83_bridge);
+    $('bm83Protocol').disabled=locked;
+    $('bm83Cancel').disabled=!bm83Flash?.busy;
     $('bm83Baud').disabled=locked;
     $('connectionPill').classList.toggle('online', connected); $('connectionPill').classList.toggle('offline', !connected);
     $('deviceIcon').classList.toggle('online', connected);
@@ -221,6 +227,7 @@ export function startUi(translations, config) {
       io = new SerialTransport(port, e => { log('Serial disconnected', e.message); invalidateConnection(); controls(); }, trace, config.appBaudRate);
       updater = new FirmwareUpdater(io, notify);
       bm83 = new Bm83Updater(io,bm83Notify);
+      bm83Flash = new Bm83FlashUpdater(io,bm83Notify,{saveBackup:saveBm83Backup});
       await updater.connect(lastAttempt?.pkg || null, !!lastAttempt?.endAccepted);
     } catch (e) { if (io) await io.close(); error(e); }
     finally { selecting = false; controls(); }
@@ -269,22 +276,27 @@ export function startUi(translations, config) {
     if(p!==null)$('bm83Progress').value=p;
     const states={BM83_CONNECTING:'Collegamento al BM83...',BM83_START:'Avvio aggiornamento BM83...',
       BM83_POWERING_ON:'Accensione BM83 via UART e attesa standby...',BM83_LEAVING_PAIRING:'Uscita dal pairing e attesa standby...',
+      BM83_BACKUP:`Backup Flash BM83: ${p ?? 0}%`,BM83_FLASHING:`Scrittura ${event.part || ''}: ${p ?? 0}%`,
+      BM83_FLASH_VERIFY:`Confronto dati riletti ${event.part || ''}: ${p ?? 0}%`,
       BM83_SENDING:`Invio ${event.part || ''}: ${p ?? 0}%`,BM83_VALIDATING:`Verifica CRC ${event.part || ''} sul BM83...`,
       BM83_REBOOTING:'Riavvio BM83...',BM83_COMPLETE:'Immagini validate dal BM83; versioni MCU/DSP corrispondenti dopo il riavvio.',
       BM83_REBOOT_UNVERIFIED:'Trasferimento terminato; riavvio BM83 non verificato.',BM83_FAILED:'Aggiornamento BM83 non completato.'};
-    $('bm83Status').textContent=event.error?.message || states[event.state] || event.state;
+    $('bm83Status').textContent=event.error?.message || (event.state==='BM83_COMPLETE' && event.readbackVerified?'Flash verificata; calibrazione conservata. TEST flottante, Q1 spento. Avvio Embedded: accendi con MFB e verifica Bluetooth/audio.':states[event.state]) || event.state;
     if(event.state==='BM83_COMPLETE')$('bm83Progress').value=100;
     if(event.bytesPerSecond!==undefined)$('bm83Rate').textContent=`UART MCU DFU: 115.200 baud · velocità media utile ${event.bytesPerSecond} byte/s · tempo ${(event.elapsedMs/1000).toFixed(1)} s`;
+    else if(event.baud)$('bm83Rate').textContent=`UART TEST: ${event.baud.toLocaleString('it-IT')} baud · tempo ${(event.elapsedMs/1000).toFixed(1)} s`;
     controls();
   }
   $('bm83File').addEventListener('change',async()=>{
     if(busy())return;
-    bm83Image=null;bm83Selecting=true;$('bm83Progress').value=0;controls();
+    bm83Image=null;bm83FlashImage=null;bm83Selecting=true;$('bm83Progress').value=0;controls();
     try {
       const file=$('bm83File').files[0];
       if(!file){$('bm83Status').textContent='Seleziona un file Rehex BM83 General Use (.hex).';return;}
       if(file.size>8*1024*1024)throw new Error('File BM83 troppo grande.');
-      bm83Image=await inspectBm83Image(await file.text(),file.name);
+      const text=await file.text();
+      bm83Image=await inspectBm83Image(text,file.name);
+      bm83FlashImage=await planBm83Flash(text,file.name);
       $('bm83Status').textContent=`${file.name}: ${bm83Image.images.map(i=>i.name).join(' + ')}; ${bm83Image.total} byte. Checksum HEX verificati; CRC da validare sul BM83. SHA-256: ${bm83Image.sha256}`;
     } catch(e) { $('bm83Status').textContent=e.message;log('BM83 FILE',e.message);bm83Record({kind:'FILE_ERROR',error:e}); }
     finally {bm83Selecting=false;controls();}
@@ -302,9 +314,26 @@ export function startUi(translations, config) {
     if(busy() || !bm83Image || !bm83)return;
     if(!confirm('Aggiornare il firmware audio BM83? Interrompi chiamate e riproduzione, mantieni il modulo alimentato e non scollegare USB.'))return;
     $('bm83Progress').value=0;
-    try {const pending=bm83.run(bm83Image);controls();await pending;}
+    try {const pending=$('bm83Protocol').value==='TEST'?bm83Flash.run(bm83FlashImage,{baud:Number($('bm83Baud').value)}):bm83.run(bm83Image);controls();await pending;}
     catch(e) {$('bm83Status').textContent=e.message;log('BM83 UPDATE',e.message);}
     finally {controls();}
+  });
+  $('bm83Protocol').addEventListener('change',()=>{
+    $('bm83Rate').textContent=$('bm83Protocol').value==='TEST'?`Programmazione TEST: UART ${Number($('bm83Baud').value).toLocaleString('it-IT')} baud; richiede bridge v3.`:'MCU DFU: UART 115.200 baud. Il precedente collaudo ha segnalato un rifiuto CONFIG.';
+    controls();
+  });
+  $('bm83Baud').addEventListener('change',()=>{
+    if($('bm83Protocol').value==='TEST')$('bm83Rate').textContent=`Programmazione TEST: UART ${Number($('bm83Baud').value).toLocaleString('it-IT')} baud.`;
+  });
+  $('bm83Cancel').addEventListener('click',()=>bm83Flash?.cancel());
+  $('bm83BackupDownload').addEventListener('click',async()=>{
+    try {
+      const backup=await latestBm83Backup();
+      if(!backup)throw new Error('Nessun backup BM83 salvato in questo browser.');
+      const url=URL.createObjectURL(new Blob([backup.bytes],{type:'application/octet-stream'}));
+      const a=document.createElement('a');a.href=url;a.download=`bm83-backup-${backup.metadata.calibrationSha256.slice(0,12)}-${backup.id}.bin`;a.click();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }catch(e){$('bm83Status').textContent=e.message;}
   });
   $('bm83Reset').addEventListener('click',async()=>{
     if(busy() || !bm83)return;
@@ -321,7 +350,7 @@ export function startUi(translations, config) {
     try {
       const pending=bm83.testUart(Number($('bm83Baud').value));controls();
       const result=await pending;
-      $('bm83Status').textContent=`UART TEST verificata a ${result.baud} baud: ${result.identificationRounds} letture ROM/Flash, ID ${result.flashId}. BM83 tornato in modalità normale. Nessuna Flash scritta; caricamento MCU DFU ancora a 115.200 baud.`;
+      $('bm83Status').textContent=`UART TEST verificata a ${result.baud} baud: ${result.identificationRounds} letture ROM/Flash, ID ${result.flashId}. ${result.guarded?'BM83 protetto in reset: ripeti il caricamento per recuperarlo.':'BM83 tornato in modalità normale.'} Nessuna Flash scritta durante questa prova.`;
     }catch(e){$('bm83Status').textContent=e.message;bm83Record({kind:'FAST_UART_ERROR',error:e});}
     finally{controls();}
   });

@@ -1,12 +1,83 @@
 # BM83 via HEADSET_BT USB/UART
 
-## Stato e uso
+## Programmazione TEST / SPI, bridge v3
+
+Il nuovo percorso `bm83-flash.js` programma direttamente la Flash SST26VF016B
+(JEDEC BF2641) tramite i comandi HCI vendor della ROM BM83. La pagina seleziona
+TEST e 921600 baud come default; le altre velocita restano selezionabili.
+Il baud dei comandi audio nell'applicazione non viene modificato.
+Le altre Flash vengono rifiutate prima di cancellare. E richiesto bridge v3.
+
+Prima di scrivere vengono letti tutti i 2 MiB di Flash. La pagina salva bytes,
+SHA-256, SHA della calibrazione, BPR, identita ROM e SHA del file selezionato
+in IndexedDB, quindi rilegge e verifica il backup salvato. Se la persistenza
+fallisce non inizia la cancellazione. `Scarica ultimo backup Flash` esporta il
+BIN da 2 MiB; i backup restano locali al browser. Il backup fotografa lo stato
+presente sulla scheda, anche se proviene da un precedente aggiornamento fallito.
+
+Piano fisico: MCU primario 10000-8FFFF, DSP/VP nelle regioni descritte dal file,
+CONFIG 6000-7FFF inclusivo del marcatore iniziale; runtime 4000-5FFF cancellato
+quando si aggiorna CONFIG, come previsto dalla guida isUpdate. Calibrazione
+2000-3FFF e area 8000-FFFF restano fuori dal piano. I settori identici al backup
+non vengono riscritti. Gli header 0000-1FFF vengono aggiornati per ultimi,
+prima quello alternativo e poi quello primario del Rehex.
+
+Il programmatore usa solo SPI 03 (lettura), 05 (stato), 06 (Write Enable),
+02 (Page Program), 20 (Sector Erase), 42/72 (BPR volatile), 04 (Write Disable).
+Nessun chip erase, global unlock o comando OTP/security viene inviato.
+Il bitmap BPR modifica solo i write lock dei settori coinvolti; il blocco
+calibrazione resta protetto. Il BPR iniziale viene ripristinato e verificato.
+Ogni settore scritto viene riletto e confrontato byte per byte; la verifica
+finale ripete il confronto di tutte le regioni e della calibrazione, registrando
+gli hash. Dopo la verifica si rilascia TEST (Q1 spento) e si resetta in Embedded Mode.
+La UART APP puo essere disabilitata: nessun comando APP o accensione UART
+e richiesto dopo TEST. COMPLETE certifica la Flash riletta e la calibrazione,
+non il funzionamento audio. Il collaudo operativo usa MFB, Bluetooth e audio.
+
+Le letture SPI usano blocchi da 240 byte. Le scritture usano 32 byte senza
+attraversare le pagine fisiche da 256 byte. Sulla ROM BT5511_002 i tentativi
+con 48/64/128 byte non completano la sequenza in modo affidabile; il settore
+CONFIG a 32 byte e stato programmato e verificato sul dispositivo reale.
+Il baud nominale non e il throughput utile: backup, ACK, cancellazioni e
+riletture contribuiscono al tempo totale.
+
+`ZN_BM83_GUARD ON` viene attivato prima del backup. Finche lo STM32 rimane
+alimentato, un errore, l'interruzione, la chiusura della porta o la lease scaduta
+tengono RST_N BM83 LOW con Q1 spento e P3_4 flottante. Q1 e attivo solo durante
+una sessione TEST; viene spento prima di rilasciare il reset normale.
+Le sessioni APP e ZN_BOOT sono bloccate in HOLD;
+una nuova sessione TEST permette il recupero. Solo dopo verifica completa il
+client invia `ZN_BM83_GUARD OFF` e chiude TEST per avviare l'applicazione.
+La diagnostica UART applicativa resta opzionale e separata dal caricamento;
+`ZN_BM83_APP_BAUD` modifica solo il baud dello STM32, senza scrivere parametri
+nel BM83. I fault di ricezione fuori sessione vengono puliti e non compromettono
+lo stato di salute STM32; durante una sessione rimangono bloccanti.
+Una perdita di alimentazione non e una transazione atomica: se l'immagine e
+parziale, va riprogrammata tramite TEST. Il bootloader STM32 resta disponibile.
+
+La rilettura MSPK2 v1.3.5 identifica MCU 1.03.0506, DSP 1.04.0412, isUpdate 3.16,
+Config GUI 1.3.25 e SPKCommandSetTool 206.008. Il file utente BT_HEADSET_V0_11A8
+contiene invece MCU 1.03.0406 e DSP 1.04.0411, anche secondo i commenti di origine
+nel file. Nessuna immagine o cartella BM83 locale e aggiunta a Git.
+
+Il limite 115200 del vecchio percorso MCU DFU e un'impostazione del client,
+non un limite assoluto del BM83: AudioUART 2.09, par. 4.3, ammette baud
+applicativi fino a 921600 configurati nel modulo. Per conservare il baud audio
+si usa il nuovo percorso TEST. Il problema originale MCU DFU CONFIG resta
+distinto: sia il test mirato includendo il marker (624 byte), sia quello senza
+padding (614 byte dopo il marker) ricevono stato 3 a Image_Validate. Non e
+stata applicata una correzione arbitraria al parser MCU DFU.
+
+Fonti: documentazione MSPK2 v1.3.5 locale, User Guide isUpdate V2.32 e note 3.16;
+[SST26VF016B DS20005262F, sezioni 4.5, 5.20, 5.33-5.34 e tabella 5-6](https://ww1.microchip.com/downloads/en/DeviceDoc/SST26VF016B-2.5V-3.0V-16-Mbit-Serial-Quad-IO-SQI-Flash-Memory-Data-Sheet-DS20005262F.pdf).
+
+## Storico del percorso MCU DFU applicativo
 
 Applicazione STM32 compilata, rigenerata con CubeMX e installata via USB sulla
 scheda. Bridge UART, reset e lettura versioni verificati sul BM83 reale. Pagina
 verificata in Chrome con seriale simulata; i suoi moduli JS sono stati provati
 anche verso la scheda tramite un adattatore seriale di test Python.
-Il ciclo completo di **scrittura Flash BM83** non e ancora riuscito:
+Il ciclo completo di **scrittura Flash BM83 tramite MCU DFU** non e riuscito:
 il trasferimento MCU DFU raggiunge CONFIG ma Image_Validate restituisce stato 3.
 La funzione resta in collaudo; END non viene inviato dopo il rifiuto.
 
@@ -54,7 +125,8 @@ Il manuale isUpdate nel pacchetto 1.2.0 dichiara 921600 come massimo a pagina 4
 e distingue la programmazione UART in TEST a pagina 6.
 
 **La prova TEST veloce non accelera il caricamento MCU DFU 0x49**: quest'ultimo
-rimane a 115200. Il programmatore Flash isUpdate/TEST non e implementato.
+rimane a 115200. La nuova programmazione TEST/SPI e descritta sopra ed e un
+percorso distinto dalla prova del collegamento.
 Non viene modificata la configurazione UART persistente dell'applicazione BM83.
 Il cambio TEST a 921600 e verificato da test di protocollo e pagina con seriale
 simulata; il successivo log di collaudo dell'utente lo conferma anche sulla
@@ -155,7 +227,7 @@ Questo confronto non sostituisce il collaudo reale della scrittura.
 CRC: polinomio riflesso 0x8408, init FFFF, inversione finale dei 16 bit, senza
 XOR finale. Vettore `123456789` = 0x89F6; stesso algoritmo del sorgente MBA.
 
-## Hardware e RPC bridge v1
+## Hardware e RPC bridge v3 (v1/v2 per le funzioni precedenti)
 
 PA2=USART2_TX verso RX BM83, PA3=USART2_RX da TX BM83, 115200 8N1.
 PA5 HIGH accende Q1 e tira P3_4 LOW; PA6 HIGH accende Q2 e tira RST_N LOW.
@@ -172,14 +244,16 @@ direttamente compatibile con isUpdate.exe.
 
 | Comando | Risposta |
 | --- | --- |
-| `ZN_BM83_INFO?` | `[BM83] BRIDGE=2 ACTIVE=... MODE=APP/TEST BAUD=... MAX_BAUD=921600 RX_BYTES=... UART_ERRORS=...` |
-| `ZN_BM83_OPEN APP` | `[BM83] OPEN=OK BRIDGE=2`, senza reset |
+| `ZN_BM83_INFO?` | `[BM83] BRIDGE=3 ACTIVE=... MODE=APP/TEST BAUD=... MAX_BAUD=921600 RX_BYTES=... UART_ERRORS=... GUARD=0/1 HOLD=0/1` |
+| `ZN_BM83_OPEN APP` | `[BM83] OPEN=OK BRIDGE=3`, senza reset, rifiutato in HOLD |
 | `ZN_BM83_OPEN TEST` | come sopra, con P3_4 LOW e reset hardware |
 | `ZN_BM83_TX <hex>` | `[BM83] TX=OK`: accettato dal bridge, non ACK del BM83 |
 | `ZN_BM83_RX?` | `[BM83] DATA=<hex>`, fino a 512 byte, anche vuoto |
 | `ZN_BM83_RESET` | `[BM83] RESET=OK`, reset hardware esplicito in sessione APP |
 | `ZN_BM83_CLOSE` | `[BM83] CLOSED=OK` |
 | `ZN_BM83_BAUD <rate>` | `[BM83] BAUD=<rate>`, solo TEST e bridge v2 |
+| `ZN_BM83_GUARD ON/OFF` | `[BM83] GUARD=ON/OFF`, solo TEST e bridge v3 |
+| `ZN_BM83_APP_BAUD <rate>` | `[BM83] BAUD=<rate>`, solo APP e bridge v3, adattamento host senza scritture BM83 |
 
 TX massimo 512 byte, validato interamente prima di trasmettere. PE/FE/NE/ORE,
 overflow ring (bit 31), timeout TX (bit 30) bloccano i trasferimenti fino a nuova
@@ -193,11 +267,11 @@ escludere transitori elettrici su TX. Dopo riavvio intenzionale il client attend
 3 s e apre una nuova sessione. CLOSE APP non resetta; il pulsante Riavvia BM83
 lo fa esplicitamente e richiede una nuova risposta UART.
 
-Il percorso web e MCU DFU 0x49 in applicazione. TEST/ROM usa un diverso protocollo
-vendor, il cui programmatore non e implementato nel sito. CLOSE TEST, perdita
-DTR o 30 s senza comandi rilasciano TEST e applicano reset se lo STM32 rimane
-alimentato. Dopo perdita di alimentazione MCU non si puo garantire un reset
-BM83 via software. RTS/CTS, MFB e alimentazione BM83 non sono comandabili.
+MCU DFU 0x49 e TEST/ROM usano protocolli diversi. Con guard disattivato,
+CLOSE TEST, perdita DTR o 30 s senza comandi rilasciano TEST e applicano reset.
+Con guard attivo il bridge v3 tiene RESET BM83 LOW e TEST flottante per il recupero.
+Queste condizioni richiedono STM32 alimentato; RTS/CTS, MFB e alimentazione
+BM83 non sono comandabili.
 
 ## Collaudo hardware dell'11 novembre 2026
 
@@ -225,3 +299,18 @@ Nessuna di queste prove ha scritto la Flash BM83.
 
 Le risorse sono documentazione tecnica; eseguibili Microchip e sorgenti SDK non
 sono incorporati nel firmware STM32 o nei file pubblicati del sito.
+
+## Nuova immagine Embedded e documentazione isUpdate 3.16
+
+Il file locale `BT_USB_REV0_0FDC.HEX` e accettato dal parser: MCU 1.03.0506,
+DSP 1.04.0412, CONFIG. SHA-256
+`6aef2dd01f15f066ecfccde32b7812450e84c0732dc437edb332b542388c826e`.
+Il log GUI HEADSET_BT_rev0 indica UART Command Disable e accensione MFB.
+Non va imposto un controllo UART APP per dichiarare riuscita la programmazione.
+Le note isUpdate 2.26 introducono 921600/460800/230400; dalla 2.97
+la voce Rehex BM83 UART DFU Use si chiama BM83 Full Image for general DFU.
+La guida V2.32 e precedente a questa rinomina. Full HEX si seleziona da solo.
+L aggiornamento CONFIG azzera runtime, ma calibrazione e pairing sono preservati.
+I test fisici sul precedente HEX hanno verificato tutte le regioni Flash;
+il successivo controllo UART APP ha segnalato un fault. Nessuna verifica
+audio e dichiarata. La nuova immagine resta locale e non viene pubblicata.

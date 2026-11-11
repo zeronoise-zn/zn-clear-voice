@@ -69,15 +69,17 @@ export class Bm83Bridge {
   constructor(io,{sleep=pause,log=()=>{}}={}) { this.io=io;this.sleep=sleep;this.log=log;this.sequence=0;this.parser=new Bm83Parser();this.events=[];this.opened=false; }
   async rpc(command,key,timeout=2500) {
     const line=await this.io.text(command+'\n',line=>line.startsWith('[BM83] '+key+'=')||line.startsWith('[BM83] ERROR='),timeout);
+    if(line==='[BM83] ERROR=TEST_GUARD')throw new UpdateError('BM83_RECOVERY_REQUIRED','Il BM83 e protetto in reset. Completa il caricamento con Programmazione diretta TEST.');
     if(line.startsWith('[BM83] ERROR='))throw new UpdateError('BM83_BRIDGE',line);
     return line;
   }
   async open(mode='APP') {
     if(!['APP','TEST'].includes(mode))throw new UpdateError('BM83_PROTOCOL','Invalid bridge mode.');
     const info=appInfo(await this.io.text('\nZN_INFO?\n',line=>!!appInfo(line)));
-    if(info?.product!=='HEADSET_BT' || ![1,2].includes(info.bm83_bridge))throw new UpdateError('BM83_BRIDGE_REQUIRED','Installa il firmware HEADSET_BT con bridge BM83.');
+    if(info?.product!=='HEADSET_BT' || ![1,2,3].includes(info.bm83_bridge))throw new UpdateError('BM83_BRIDGE_REQUIRED','Installa il firmware HEADSET_BT con bridge BM83.');
     if(mode==='TEST' && info.bm83_bridge<2)throw new UpdateError('BM83_BRIDGE_REQUIRED','La prova UART veloce richiede il nuovo firmware STM32 con bridge BM83 v2.');
     this.log({kind:'DEVICE',mode,info});
+    this.info=info;
     // TinyUSB's connected state includes DTR. Assert it explicitly instead
     // of relying on the host driver default when opening a Web Serial port.
     if(this.io.port?.setSignals)await this.io.port.setSignals({dataTerminalReady:true});
@@ -146,6 +148,18 @@ export class Bm83Bridge {
     return reply.parameters.slice(1);
   }
   async version() {return Array.from(await this.readVersion(0)).join('.');}
+  async detectAppBaud() {
+    // Host-only adaptation to the settings ALREADY in the BM83 image.
+    // Read-version is safe to probe; no persistent BM83 setting is changed.
+    for(const baud of [115200,921600,460800,230400]) {
+      await this.rpc('ZN_BM83_APP_BAUD '+baud,'BAUD');
+      this.events=[];this.parser=new Bm83Parser();
+      this.log({kind:'APP_UART_PROBE',baud});
+      try {const version=await this.version();this.log({kind:'APP_UART_VERIFIED',baud,version});return {baud,version};}
+      catch(error){this.log({kind:'APP_UART_PROBE_FAILED',baud,error:error.message});}
+    }
+    throw new UpdateError('BM83_APP_UART','Il BM83 non risponde alle velocita applicative supportate. Flash scritta ma avvio non verificato.');
+  }
   async readState() {
     this.events=this.events.filter(e=>e.event!==0x1e);
     await this.command(0x0d);

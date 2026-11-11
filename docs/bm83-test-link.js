@@ -26,7 +26,7 @@ export class HciEventParser {
 // Official AT 1.0.1 isUpdate tool, routine 0x409030, sends FC5D with
 // the 32-bit little-endian baud. It requires Command Complete success at the
 // OLD baud, waits 1000ms, then changes the host UART. No Flash command below.
-export async function testBm83Uart(bridge,baud=921600,{sleep=ms=>new Promise(r=>setTimeout(r,ms)),log=()=>{}}={}) {
+export async function connectBm83Test(bridge,baud=921600,{sleep=ms=>new Promise(r=>setTimeout(r,ms)),log=()=>{}}={}) {
   if(![115200,230400,460800,921600].includes(baud))throw new UpdateError('BM83_BAUD','Velocita UART non supportata.');
   await bridge.open('TEST');
   let parser=new HciEventParser(),queue=[];
@@ -43,6 +43,9 @@ export async function testBm83Uart(bridge,baud=921600,{sleep=ms=>new Promise(r=>
         const status=statusByte?ack.parameters[3]:null;
         log({kind:'HCI_ACK',opcode:name,status,packet:hex(ack.raw)});
         if(statusByte && status!==0)throw new UpdateError('BM83_HCI_NACK',`${name}: stato ${status}.`);
+        // ROM vendor handlers need a turnaround interval after completion,
+        // particularly after SPI programming at 921600 without RTS/CTS.
+        await sleep(2);
         return ack.parameters.slice(statusByte?4:3);
       }
       const line=await bridge.rpc('ZN_BM83_RX?','DATA'),value=line.slice(12).trim();
@@ -50,9 +53,9 @@ export async function testBm83Uart(bridge,baud=921600,{sleep=ms=>new Promise(r=>
       const packets=parser.push(Uint8Array.from(value.match(/../g)||[],b=>parseInt(b,16)));
       for(const p of packets)log({kind:'HCI_RX',packet:hex(p.raw)});
       queue.push(...packets);if(queue.length>64)throw new UpdateError('BM83_HCI','Troppi eventi HCI.');
-      await sleep(5);
+      if(!packets.length)await sleep(1);
     }
-    throw new UpdateError('BM83_HCI_TIMEOUT',`Nessuna conferma per ${name}; la velocita non e verificata.`);
+    throw new UpdateError('BM83_HCI_TIMEOUT',`Nessuna conferma per ${name}. Nessun comando ritentato.`);
   };
   log({kind:'TEST_UART_START',initialBaud:115200,targetBaud:baud});
   const before=await command(0x1001); // Standard HCI Read Local Version Information.
@@ -85,5 +88,10 @@ export async function testBm83Uart(bridge,baud=921600,{sleep=ms=>new Promise(r=>
   }
   const result={baud,identity:hex(after),rom,flashId,identificationRounds:32,flashWritten:false};
   log({kind:'TEST_UART_VERIFIED',...result});
+  return {...result,command};
+}
+export async function testBm83Uart(bridge,baud=921600,options={}) {
+  const {command,...result}=await connectBm83Test(bridge,baud,options);
+  if(bridge.info?.bm83_bridge===3)result.guarded=/\bGUARD=1\b/.test(await bridge.rpc('ZN_BM83_INFO?','BRIDGE'));
   return result;
 }
