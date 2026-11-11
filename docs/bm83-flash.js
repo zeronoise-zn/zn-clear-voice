@@ -143,16 +143,16 @@ export function unlockedProtection(original,sectors) {
 }
 
 export class Bm83FlashUpdater {
-  constructor(io,notify=()=>{},{sleep=pause,bridgeFactory,connect=connectBm83Test,saveBackup}={}) {
-    this.io=io;this.notify=notify;this.sleep=sleep;this.connect=connect;this.saveBackup=saveBackup;
+  constructor(io,notify=()=>{},{sleep=pause,bridgeFactory,connect=connectBm83Test}={}) {
+    this.io=io;this.notify=notify;this.sleep=sleep;this.connect=connect;
     this.bridgeFactory=bridgeFactory || (io=>new Bm83Bridge(io,{sleep,log:e=>notify({state:'BM83_LOG',...e})}));
     this.busy=false;this.cancelled=false;
   }
   cancel(){this.cancelled=true;}
   async run(plan,{baud=921600}={}) {
     if(this.busy)fail('BUSY','Operazione BM83 in corso.');
-    if(plan?.format!=='BM83_TEST_SPI' || !plan.regions?.length || !this.saveBackup)
-      fail('BM83_FLASH_PLAN','Piano TEST e salvataggio backup obbligatori.');
+    if(plan?.format!=='BM83_TEST_SPI' || !plan.regions?.length)
+      fail('BM83_FLASH_PLAN','Piano TEST obbligatorio.');
     this.busy=true;this.cancelled=false;
     const bridge=this.bridgeFactory(this.io),started=Date.now();let guarded=false,committed=false,flash,protection,detailed=true,context={phase:'CONNECT'};
     const log=e=>this.notify({state:'BM83_LOG',...e});
@@ -170,26 +170,23 @@ export class Bm83FlashUpdater {
       }});
       if(bridge.info?.bm83_bridge!==3)fail('BM83_BRIDGE_REQUIRED','La programmazione TEST richiede il firmware STM32 con bridge v3.');
       if(link.flashId!=='bf2641')fail('BM83_FLASH_UNSUPPORTED','Flash non supportata: '+link.flashId+'. Nessuna cancellazione eseguita.');
-      detailed=false;context={phase:'BACKUP'};
+      detailed=false;context={phase:'COMPARE'};
       const capabilities=await bridge.rpc('ZN_BM83_INFO?','BRIDGE');
       const batch=/\bSPI_BATCH=4096\b/.test(capabilities);
       log({kind:'TRANSFER_MODE',usbBlock:batch?4096:32,executor:batch?'STM32':'BROWSER'});
       flash=new Bm83SpiFlash(link,{sleep:this.sleep,check,bridge:batch?bridge:null});
-      // Mark the programming session before backup, including recovery.
+      // Retain only calibration in RAM; no full dump or persistent backup.
       await bridge.rpc('ZN_BM83_GUARD ON','GUARD');guarded=true;
-      const backup=await flash.read(0,FLASH_SIZE,(n,total)=>progress('BM83_BACKUP',n,total,'BACKUP'));
-      const calibration=backup.slice(0x2000,0x4000);
+      const calibration=await flash.read(0x2000,0x2000);
+      log({kind:'CALIBRATION_SNAPSHOT',bytes:calibration.length,sha256:await sha256(calibration)});
       protection=await flash.protection();
-      const metadata={format:1,createdAt:new Date().toISOString(),file:plan.filename,sourceSha256:plan.sha256,
-        flashSha256:await sha256(backup),calibrationSha256:await sha256(calibration),protection:hex(protection),baud,rom:link.rom,flashId:link.flashId};
-      check();
-      const saved=await this.saveBackup(backup,metadata);
-      if(saved?.stored!==true)fail('BM83_BACKUP_REQUIRED','Backup non confermato: nessuna cancellazione eseguita.');
-      log({kind:'BACKUP_SAVED',...metadata,backupId:saved.id});
-      const sectors=[];
+      const sectors=[];let compared=0;
+      const compareTotal=plan.regions.reduce((n,r)=>n+r.bytes.length,0);
       for(const region of plan.regions)for(let offset=0;offset<region.bytes.length;offset+=4096){
         const address=region.start+offset,bytes=region.bytes.slice(offset,offset+4096);
-        if(!equal(backup.subarray(address,address+4096),bytes))sectors.push({address,bytes,name:region.name});
+        const current=await flash.read(address,bytes.length);
+        if(!equal(current,bytes))sectors.push({address,bytes,name:region.name});
+        compared+=bytes.length;progress('BM83_COMPARING',compared,compareTotal,region.name);
       }
       // Headers last, secondary first. Guard stays on until the complete
       // physical image, calibration and restored BPR have been verified.
@@ -211,7 +208,7 @@ export class Bm83FlashUpdater {
         if(!equal(actual,region.bytes))fail('BM83_FLASH_VERIFY',region.name+': verifica finale fallita.');
         log({kind:'FLASH_REGION_VERIFIED',part:region.name,address:region.start,bytes:actual.length,sha256:await sha256(actual)});
       }
-      if(!equal(await flash.read(0x2000,0x2000),calibration))fail('BM83_CALIBRATION','Calibrazione diversa dal backup.');
+      if(!equal(await flash.read(0x2000,0x2000),calibration))fail('BM83_CALIBRATION','Calibrazione diversa dalla lettura iniziale.');
       context={phase:'RESTORE_PROTECTION'};
       await flash.setProtection(protection);await flash.spi([4]);
       check();await bridge.rpc('ZN_BM83_GUARD OFF','GUARD');guarded=false;committed=true;
@@ -223,7 +220,7 @@ export class Bm83FlashUpdater {
       log({kind:'EMBEDDED_RELEASED',testPin:'FLOATING',q1:'OFF',runtimeVerified:false,expectedVersions});
       this.notify({state:'BM83_COMPLETE',protocol:'TEST_HCI_SPI',baud,applicationMode:'EMBEDDED',readbackVerified:true,calibrationPreserved:true,runtimeVerified:false,expectedVersions,elapsedMs:Date.now()-started});
     } catch(error) {
-      // Never claim commit after a failed readback/backup. CLOSE releases
+      // Never claim commit after failed readback. CLOSE releases
       // TEST and RESET on STM32 1.0.10+; an incomplete image needs TEST recovery.
       this.notify({state:committed?'BM83_REBOOT_UNVERIFIED':'BM83_FAILED',error,guarded,...context,elapsedMs:Date.now()-started});
       if(bridge.opened)try{log({kind:'BRIDGE_SNAPSHOT',reply:await bridge.rpc('ZN_BM83_INFO?','BRIDGE')});}catch{}

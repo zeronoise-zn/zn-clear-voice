@@ -52,7 +52,7 @@ test('SST protection bitmap changes only target write bits and always locks cali
 
 function simulated({corrupt=false,unsupported=false,bridgeVersion=3}={}) {
   const memory=new Uint8Array(size).fill(255);memory.set([0x12,0x34,0x56],0x2000);
-  const original=Uint8Array.from([0x55,0x55,255,255,255,255]);let bpr=original.slice(),status=0,saved=false,guard=false,held=false;
+  const original=Uint8Array.from([0x55,0x55,255,255,255,255]);let bpr=original.slice(),status=0,calibrationRead=false,guard=false,held=false;
   const operations=[],events=[];
   const bridge={opened:false,info:{bm83_bridge:bridgeVersion},async open(mode){operations.push('OPEN '+mode);this.opened=true;},
     async close(){if(!this.opened)return;operations.push('CLOSE');held=false;guard=false;this.opened=false;},
@@ -62,22 +62,19 @@ function simulated({corrupt=false,unsupported=false,bridgeVersion=3}={}) {
     assert.equal(opcode,0xfca4);assert.equal(p[0],0);const read=p[1],tx=p.slice(3),op=tx[0];assert.equal(p[2],tx.length);
     let data=[];const address=(tx[1]<<16)|(tx[2]<<8)|tx[3];
     operations.push({op,address});
-    if(op===3){data=memory.slice(address,address+read);if(corrupt && saved && operations.some(x=>x.op===2))data=data.slice(),data[0]^=1;}
+    if(op===3){data=memory.slice(address,address+read);if(address+read===0x4000)calibrationRead=true;if(corrupt && operations.some(x=>x.op===2))data=data.slice(),data[0]^=1;}
     else if(op===5)data=[status];
     else if(op===6)status=2;
     else if(op===4)status=0;
     else if(op===0x72)data=bpr;
-    else if(op===0x42){assert(saved);assert(guard);assert.equal(status,2);bpr=Uint8Array.from(tx.slice(1));status=0;}
-    else if(op===0x20){assert(saved);assert(guard);assert.equal(status,2);assert(address<0x2000||address>=0x4000);memory.fill(255,address,address+4096);status=0;}
-    else if(op===2){assert(saved);assert(guard);assert.equal(status,2);assert((address&255)+tx.length-4<=256);tx.slice(4).forEach((v,i)=>memory[address+i]&=v);status=0;}
+    else if(op===0x42){assert(calibrationRead);assert(guard);assert.equal(status,2);bpr=Uint8Array.from(tx.slice(1));status=0;}
+    else if(op===0x20){assert(calibrationRead);assert(guard);assert.equal(status,2);assert(address<0x2000||address>=0x4000);memory.fill(255,address,address+4096);status=0;}
+    else if(op===2){assert(calibrationRead);assert(guard);assert.equal(status,2);assert((address&255)+tx.length-4<=256);tx.slice(4).forEach((v,i)=>memory[address+i]&=v);status=0;}
     else assert.fail('Unexpected/destructive SPI opcode '+op);
     return Uint8Array.from([op,read,...data]);
   }};
   const updater=new Bm83FlashUpdater({},e=>events.push(e),{sleep:async()=>{},bridgeFactory:()=>bridge,
-    connect:async b=>{await b.open('TEST');return link;},saveBackup:async(bytes,meta)=>{
-      assert(!operations.some(x=>x.op===0x20));assert.equal(bytes.length,size);assert.equal(meta.flashSha256.length,64);
-      saved=true;return {stored:true,id:'backup'};
-    }});
+    connect:async b=>{await b.open('TEST');return link;}});
   return {memory,operations,events,updater,bridge,link,original,get bpr(){return bpr;},get held(){return held;}};
 }
 function smallPlan(){
@@ -88,7 +85,7 @@ function smallPlan(){
     regions:[{name:'HEADER',start:0,bytes:header},{name:'MCU',start:0x10000,bytes:body}]};
 }
 
-test('Actual SPI updater saves full backup before mutation, verifies readback, commits header last and restores protection',async()=>{
+test('SPI updater reads only target sectors and calibration, needs no backup, verifies readback and commits header last',async()=>{
   const s=simulated();
   s.bridge.readVersion=async()=>assert.fail('Embedded Mode must not require APP UART');
   s.bridge.detectAppBaud=async()=>assert.fail('Embedded Mode must not probe APP UART');
@@ -101,12 +98,18 @@ test('Actual SPI updater saves full backup before mutation, verifies readback, c
   assert.equal(s.events.at(-1).applicationMode,'EMBEDDED');
   assert.equal(s.events.at(-1).runtimeVerified,false);
   assert(!s.operations.includes('OPEN APP'));
+  assert(!s.events.some(e=>e.state==='BM83_BACKUP'||e.kind==='BACKUP_SAVED'));
+  const reads=s.operations.filter(o=>o.op===3);
+  assert(reads.every(o=>o.address<0x4000 || o.address>=0x10000&&o.address<0x11000));
+  // Second identical upload compares sectors but never erases/programs again.
+  const erased=s.operations.filter(o=>o.op===0x20).length;
+  await s.updater.run(smallPlan());
+  assert.equal(s.operations.filter(o=>o.op===0x20).length,erased);
 });
 
-test('Wrong bridge/Flash or failed persistent backup never erases; failed verification never commits and always closes',async()=>{
-  for(const setup of [{unsupported:true},{bridgeVersion:2},{backup:true},{corrupt:true}]){
+test('Wrong bridge/Flash never erases; failed verification never commits and always closes',async()=>{
+  for(const setup of [{unsupported:true},{bridgeVersion:2},{corrupt:true}]){
     const s=simulated(setup);
-    if(setup.backup)s.updater.saveBackup=async()=>({stored:false});
     await assert.rejects(s.updater.run(smallPlan()),/BM83_/);
     if(!setup.corrupt)assert(!s.operations.some(x=>x.op===0x20));
     else {assert(!s.held);assert(!s.operations.includes('ZN_BM83_GUARD OFF'));}
@@ -114,9 +117,9 @@ test('Wrong bridge/Flash or failed persistent backup never erases; failed verifi
   }
 });
 
-test('Cancellation after backup releases session and stops before any write; mismatched SPI reply is fatal',async()=>{
-  const s=simulated(),save=s.updater.saveBackup;
-  s.updater.saveBackup=async(...args)=>{const r=await save(...args);s.updater.cancel();return r;};
+test('Cancellation during comparison releases session and stops before any write; mismatched SPI reply is fatal',async()=>{
+  const s=simulated(),notify=s.updater.notify;
+  s.updater.notify=e=>{notify(e);if(e.state==='BM83_COMPARING')s.updater.cancel();};
   await assert.rejects(s.updater.run(smallPlan()),/BM83_CANCELLED/);
   assert(!s.operations.some(x=>x.op===0x20));assert(!s.held);
   const f=new Bm83SpiFlash({async command(){return Uint8Array.of(5,1,0);}});

@@ -8,17 +8,18 @@ TEST e 921600 baud come default; le altre velocita restano selezionabili.
 Il baud dei comandi audio nell'applicazione non viene modificato.
 Le altre Flash vengono rifiutate prima di cancellare. E richiesto bridge v3.
 
-Prima di scrivere vengono letti tutti i 2 MiB di Flash. La pagina salva bytes,
-SHA-256, SHA della calibrazione, BPR, identita ROM e SHA del file selezionato
-in IndexedDB, quindi rilegge e verifica il backup salvato. Se la persistenza
-fallisce non inizia la cancellazione. `Scarica ultimo backup Flash` esporta il
-BIN da 2 MiB; i backup restano locali al browser. Il backup fotografa lo stato
-presente sulla scheda, anche se proviene da un precedente aggiornamento fallito.
+Il caricamento non esegue piu il backup completo da 2 MiB e non salva copie
+in IndexedDB. Legge solo i settori previsti dal piano per saltare quelli gia
+identici (BM83_COMPARING), scartando subito i vecchi dati. Conserva in RAM
+solo gli 8 KiB di calibrazione per confrontarli dopo la scrittura. Restano
+verifica dei settori, rilettura finale delle regioni e ripristino BPR.
+Il pulsante Scarica backup precedente permette di esportare solo copie gia
+salvate dalle versioni precedenti; nessun backup viene creato dal caricamento.
 
 Piano fisico: MCU primario 10000-8FFFF, DSP/VP nelle regioni descritte dal file,
 CONFIG 6000-7FFF inclusivo del marcatore iniziale; runtime 4000-5FFF cancellato
 quando si aggiorna CONFIG, come previsto dalla guida isUpdate. Calibrazione
-2000-3FFF e area 8000-FFFF restano fuori dal piano. I settori identici al backup
+2000-3FFF e area 8000-FFFF restano fuori dal piano. I settori gia identici alla lettura iniziale
 non vengono riscritti. Gli header 0000-1FFF vengono aggiornati per ultimi,
 prima quello alternativo e poi quello primario del Rehex.
 
@@ -38,7 +39,7 @@ Le letture SPI usano blocchi da 240 byte. Le scritture usano 32 byte senza
 attraversare le pagine fisiche da 256 byte. Sulla ROM BT5511_002 i tentativi
 con 48/64/128 byte non completano la sequenza in modo affidabile; il settore
 CONFIG a 32 byte e stato programmato e verificato sul dispositivo reale.
-Il baud nominale non e il throughput utile: backup, ACK, cancellazioni e
+Il baud nominale non e il throughput utile: confronto, ACK, cancellazioni e
 riletture contribuiscono al tempo totale.
 
 `ZN_BM83_GUARD ON/OFF` resta compatibile come stato della sessione TEST.
@@ -48,7 +49,7 @@ spenti. PA5/PA6 LOW lasciano flottanti i pin BM83 tramite i transistor.
 RESET viene azionato solo per l'impulso esplicito o il cambio TEST/Embedded.
 INFO espone HOLD=0; fuori sessione GUARD=0. La sola ricarica USB non aziona
 il reset e non impedisce l'uso audio. Un'immagine interrotta puo richiedere
-un nuovo caricamento TEST; il backup resta disponibile nel browser.
+un nuovo caricamento TEST; i backup precedenti restano disponibili nel browser.
 La diagnostica UART applicativa resta opzionale e separata dal caricamento;
 `ZN_BM83_APP_BAUD` modifica solo il baud dello STM32, senza scrivere parametri
 nel BM83. I fault di ricezione fuori sessione vengono puliti e non compromettono
@@ -326,7 +327,7 @@ Un settore da 4096 byte viene caricato in RAM con SECTOR + otto CHUNK da 512;
 PROGRAM verifica CRC-32 prima di qualsiasi cancellazione. Lo STM32 esegue
 WREN/erase/program/status e confronto byte per byte della rilettura senza
 round trip del browser per ogni comando. PROGRAM restituisce OK e CRC solo
-dopo verifica. La rilettura finale dell'intera immagine e il backup restano attivi.
+dopo verifica. La rilettura finale delle regioni dell'immagine resta attiva.
 READ accetta fino a 4096 byte e li legge localmente con comandi ROM da 240.
 Il client accetta risposte testuali limitate a 8256 byte, frammentate via USB.
 
@@ -348,6 +349,6 @@ Il buffer aggiunge 4096 byte di RAM. Build: BSS circa 12.4 KiB e almeno 8 KiB
 riservati allo stack. Un buffer da 8192 consumerebbe questa riserva nel layout
 attuale; non offre una pagina Flash maggiore. I test C simulano la vera
 implementazione con errori/CRC/offset/rilettura/disconnessione; il test Chrome
-verifica il percorso pagina, backup persistente e risposte USB da 4096 byte.
+verifica il percorso pagina, assenza di backup automatici e risposte USB da 4096 byte.
 La nuova velocita utile va misurata sulla scheda: non viene dichiarato un fattore
 prima del collaudo hardware.

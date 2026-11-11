@@ -5,7 +5,7 @@ import { profileByName } from './product-profiles.js';
 import { inspectBm83Image } from './bm83-image.js';
 import { Bm83Updater } from './bm83-updater.js';
 import { Bm83FlashUpdater,planBm83Flash } from './bm83-flash.js';
-import {saveBm83Backup,latestBm83Backup} from './bm83-backup.js';
+import {latestBm83Backup} from './bm83-backup.js';
 
 const PRODUCT_DISPLAY_NAMES = new Map([
   ['ClearVoice', 'ClearVoice Portable Unit'],
@@ -227,7 +227,7 @@ export function startUi(translations, config) {
       io = new SerialTransport(port, e => { log('Serial disconnected', e.message); invalidateConnection(); controls(); }, trace, config.appBaudRate);
       updater = new FirmwareUpdater(io, notify);
       bm83 = new Bm83Updater(io,bm83Notify);
-      bm83Flash = new Bm83FlashUpdater(io,bm83Notify,{saveBackup:saveBm83Backup});
+      bm83Flash = new Bm83FlashUpdater(io,bm83Notify);
       await updater.connect(lastAttempt?.pkg || null, !!lastAttempt?.endAccepted);
     } catch (e) { if (io) await io.close(); error(e); }
     finally { selecting = false; controls(); }
@@ -278,7 +278,7 @@ export function startUi(translations, config) {
     if(p!==null)$('bm83Progress').value=p;
     const states={BM83_CONNECTING:'Collegamento al BM83...',BM83_START:'Avvio aggiornamento BM83...',
       BM83_POWERING_ON:'Accensione BM83 via UART e attesa standby...',BM83_LEAVING_PAIRING:'Uscita dal pairing e attesa standby...',
-      BM83_BACKUP:`Backup Flash BM83: ${p ?? 0}%`,BM83_FLASHING:`Scrittura ${event.part || ''}: ${p ?? 0}%`,
+      BM83_COMPARING:`Confronto settori ${event.part || ''}: ${p ?? 0}%`,BM83_FLASHING:`Scrittura ${event.part || ''}: ${p ?? 0}%`,
       BM83_FLASH_VERIFY:`Confronto dati riletti ${event.part || ''}: ${p ?? 0}%`,
       BM83_SENDING:`Invio ${event.part || ''}: ${p ?? 0}%`,BM83_VALIDATING:`Verifica CRC ${event.part || ''} sul BM83...`,
       BM83_REBOOTING:'Riavvio BM83...',BM83_COMPLETE:'Immagini validate dal BM83; versioni MCU/DSP corrispondenti dopo il riavvio.',
