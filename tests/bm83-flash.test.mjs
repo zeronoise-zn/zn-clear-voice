@@ -2,8 +2,35 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {planBm83Flash,Bm83SpiFlash,Bm83FlashUpdater,unlockedProtection} from '../docs/bm83-flash.js';
+import {crc32} from '../docs/zn-protocol.js';
 const size=0x200000,eq=(a,b)=>assert.deepEqual([...a],[...b]);
 const source=await readFile(new URL('../Firmware/Bluethoot/BM83_CLEARVOICE_REV01.HEX',import.meta.url),'utf8');
+
+test('4096-byte STM32 path stages exact offsets, checks CRC, reads large blocks and never uses browser SPI programs',async()=>{
+  const memory=new Uint8Array(8192),calls=[];let staged=[],address;
+  const bridge={async rpc(c){
+    calls.push(c.split(' ')[0]);const parts=c.split(' ');
+    if(parts[0]==='ZN_BM83_SECTOR'){address=parseInt(parts[1],16);staged=[];return '[BM83] SECTOR=OK';}
+    if(parts[0]==='ZN_BM83_CHUNK'){
+      assert.equal(parseInt(parts[1],16),staged.length);
+      assert.equal(parts[2].length,1024);staged.push(...Buffer.from(parts[2],'hex'));
+      return '[BM83] CHUNK='+staged.length;
+    }
+    if(parts[0]==='ZN_BM83_PROGRAM'){
+      assert.equal(staged.length,4096);assert.equal(parseInt(parts[1],16),crc32(staged));
+      memory.set(staged,address);return '[BM83] PROGRAM=OK CRC='+parts[1].toUpperCase();
+    }
+    assert.equal(parts[0],'ZN_BM83_READ');const a=parseInt(parts[1],16),n=parseInt(parts[2],16);
+    assert(n<=4096);return '[BM83] READ='+Buffer.from(memory.slice(a,a+n)).toString('hex');
+  }};
+  const f=new Bm83SpiFlash({async command(){assert.fail('No browser SPI transactions for batched data');}},{bridge});
+  const bytes=Uint8Array.from({length:4096},(_,i)=>i&255);
+  await f.sector(0,bytes);eq(await f.read(0,8192),memory);
+  assert.equal(calls.filter(c=>c==='ZN_BM83_CHUNK').length,8);
+  assert.equal(calls.filter(c=>c==='ZN_BM83_PROGRAM').length,1);
+  bridge.rpc=async()=> '[BM83] READ=ff';
+  await assert.rejects(f.read(0,4096),/BM83_SPI/);
+});
 
 test('TEST image uses physical config marker, clears runtime and keeps calibration and pairing outside every sector',async()=>{
   const p=await planBm83Flash(source,'rev01.hex');

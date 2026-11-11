@@ -10,6 +10,16 @@ import { startUi } from '../docs/updater-ui.js';
 const text = s => new TextEncoder().encode(s);
 const app = { product: 'ClearVoice', hardware: 'REV01', firmware: '1.0.0.47', git: '11a737c9361307cc9e7c1b6d470dd7a128f1ac65', dirty: 0, shallow: 0 };
 const healthy = '[RUNTIME] STATUS=RUNNING FAULT=OK CODE=0 AUDIO_BLOCKS=42 CONFIRMED=1 UART_ERRORS=0x00000000';
+test('Text transport accepts fragmented 4096-byte BM83 reads and remains bounded',()=>{
+  const io=new SerialTransport({});let received;
+  io.pending={predicate:line=>line.startsWith('[BM83] READ='),resolve:line=>{received=line;}};
+  const expected='[BM83] READ='+'a5'.repeat(4096);
+  const bytes=text(expected+'\n');
+  for(let i=0;i<bytes.length;i+=63)io.ingest(bytes.slice(i,i+63));
+  assert.equal(received,expected);
+  received=null;io.ingest(text('[BM83] READ='+'00'.repeat(5000)+'\n'));
+  assert.equal(received,null);assert.equal(io.buffer.length,0);
+});
 const bootDiag = '[BOOT_DIAG] BOOT_ADMITTED=1 BOOT_TRIAL=1 BOOT_CONFIRM_ATTEMPTED=1 BOOT_CONFIRM_RESULT=SUCCESS CONFIRMED=1';
 test('R4E optional diagnostic fields are verbatim visibility, not completion evidence', () => {
   for (const result of ['SUCCESS','ALREADY_CONFIRMED','NOT_CALLED','NOT_PENDING','INVALID_METADATA','FLASH_ERROR','INVALID_CONTEXT']) {

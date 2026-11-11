@@ -315,3 +315,39 @@ L aggiornamento CONFIG azzera runtime, ma calibrazione e pairing sono preservati
 I test fisici sul precedente HEX hanno verificato tutte le regioni Flash;
 il successivo controllo UART APP ha segnalato un fault. Nessuna verifica
 audio e dichiarata. La nuova immagine resta locale e non viene pubblicata.
+
+## Blocchi da 4096 byte nello STM32 1.0.11
+
+INFO espone SPI_BATCH=4096. Il client usa automaticamente il percorso locale
+per letture e programmazione; i firmware precedenti restano sul percorso browser.
+TRANSFER_MODE registra usbBlock=4096 ed executor=STM32, visibili anche nella pagina.
+
+Un settore da 4096 byte viene caricato in RAM con SECTOR + otto CHUNK da 512;
+PROGRAM verifica CRC-32 prima di qualsiasi cancellazione. Lo STM32 esegue
+WREN/erase/program/status e confronto byte per byte della rilettura senza
+round trip del browser per ogni comando. PROGRAM restituisce OK e CRC solo
+dopo verifica. La rilettura finale dell'intera immagine e il backup restano attivi.
+READ accetta fino a 4096 byte e li legge localmente con comandi ROM da 240.
+Il client accetta risposte testuali limitate a 8256 byte, frammentate via USB.
+
+Non e una scrittura fisica singola da 4096: la Flash SST26VF016B ha pagine
+Page Program da 256 byte e settori da 4096. Il trasporto ROM FCA4 mantiene
+programmi da 32 byte (gia collaudati), eseguiti ora nello STM32. Non si aumenta
+alla cieca il payload UART: il guadagno deriva dall'eliminazione delle attese
+browser fra i comandi. Il turnaround ROM da 2 ms e mantenuto.
+
+RPC solo TEST: ZN_BM83_SECTOR <address8hex>, ZN_BM83_CHUNK <offset4hex> <hex>,
+ZN_BM83_PROGRAM <crc8hex>, ZN_BM83_READ <address8hex> <length4hex>.
+Mutazioni richiedono GUARD e un settore ammesso: header, runtime/config,
+MCU primario o DSP/VP primario. Calibrazione, pairing e bank MCU alternativo
+sono esclusi. Offset errati, CRC errato, target diverso da BF2641, reply UART
+invalida o verifica fallita interrompono il percorso; nessuna mutazione e ritentata.
+CLOSE/disconnessione/errore rilasciano Q1/Q2 come nella 1.0.10.
+
+Il buffer aggiunge 4096 byte di RAM. Build: BSS circa 12.4 KiB e almeno 8 KiB
+riservati allo stack. Un buffer da 8192 consumerebbe questa riserva nel layout
+attuale; non offre una pagina Flash maggiore. I test C simulano la vera
+implementazione con errori/CRC/offset/rilettura/disconnessione; il test Chrome
+verifica il percorso pagina, backup persistente e risposte USB da 4096 byte.
+La nuova velocita utile va misurata sulla scheda: non viene dichiarato un fattore
+prima del collaudo hardware.

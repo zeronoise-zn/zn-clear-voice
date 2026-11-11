@@ -43,7 +43,7 @@ export function startUi(translations, config) {
   let selecting = false, manifestLoading = false, selectionError = false, packageSource = null;
   let lastAttempt = null;
   let applicationDiagnostics = {};
-  let bm83=null, bm83Flash=null, bm83Image=null, bm83FlashImage=null, bm83Selecting=false;
+  let bm83=null, bm83Flash=null, bm83Image=null, bm83FlashImage=null, bm83Selecting=false, bm83UsbBlock=0;
   const bm83Log=[];let bm83LogBytes=0,bm83LogDropped=0,bm83LogRender=0;
   function bm83Record(event) {
     const record={time:new Date().toISOString(),...event,error:event.error instanceof Error?event.error.message:event.error};
@@ -270,6 +270,8 @@ export function startUi(translations, config) {
   });
   function bm83Notify(event) {
     bm83Record(event);
+    if(event.kind==='SESSION')bm83UsbBlock=0;
+    if(event.kind==='TRANSFER_MODE')bm83UsbBlock=event.usbBlock;
     if(event.state==='BM83_LOG')return;
     log(event.state,event.error?.message || event.part || '');
     const p=event.total?Math.floor(100*event.offset/event.total):null;
@@ -284,7 +286,7 @@ export function startUi(translations, config) {
     $('bm83Status').textContent=event.error?.message || (event.state==='BM83_COMPLETE' && event.readbackVerified?'Flash verificata; calibrazione conservata. TEST flottante, Q1 spento. Avvio Embedded: accendi con MFB e verifica Bluetooth/audio.':states[event.state]) || event.state;
     if(event.state==='BM83_COMPLETE')$('bm83Progress').value=100;
     if(event.bytesPerSecond!==undefined)$('bm83Rate').textContent=`UART MCU DFU: 115.200 baud · velocità media utile ${event.bytesPerSecond} byte/s · tempo ${(event.elapsedMs/1000).toFixed(1)} s`;
-    else if(event.baud)$('bm83Rate').textContent=`UART TEST: ${event.baud.toLocaleString('it-IT')} baud · tempo ${(event.elapsedMs/1000).toFixed(1)} s`;
+    else if(event.baud)$('bm83Rate').textContent=`UART TEST: ${event.baud.toLocaleString('it-IT')} baud${bm83UsbBlock?' · blocchi '+bm83UsbBlock+' byte · gestione '+(bm83UsbBlock===4096?'STM32':'browser'):''} · tempo ${(event.elapsedMs/1000).toFixed(1)} s`;
     controls();
   }
   $('bm83File').addEventListener('change',async()=>{

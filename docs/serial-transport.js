@@ -57,7 +57,7 @@ export class SerialTransport {
         this.discard = false;
       } else if (!this.discard) {
         this.buffer.push(b);
-        if (this.buffer.length > (this.mode === 'binary' ? 1043 : 2048)) { this.buffer = []; this.discard = true; }
+        if (this.buffer.length > (this.mode === 'binary' ? 1043 : 8256)) { this.buffer = []; this.discard = true; }
       }
     }
   }

@@ -5,6 +5,7 @@ import {UpdateError} from './znfw.js';
 import {FLASH_SIZE,inspectBm83Image,parseBm83Hex} from './bm83-image.js';
 import {connectBm83Test} from './bm83-test-link.js';
 import {Bm83Bridge} from './bm83-updater.js';
+import {crc32} from './zn-protocol.js';
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 const hex=b=>Array.from(b,v=>v.toString(16).padStart(2,'0')).join('');
 const equal=(a,b)=>a.length===b.length && a.every((v,i)=>v===b[i]);
@@ -43,7 +44,7 @@ export async function planBm83Flash(text,filename) {
 // The ROM returns status, echoed SPI opcode, read length and data in FCA4
 // Command Complete. Match ALL fields; an ACK alone does not prove a write.
 export class Bm83SpiFlash {
-  constructor(link,{sleep=pause,check=()=>{}}={}){this.link=link;this.sleep=sleep;this.check=check;}
+  constructor(link,{sleep=pause,check=()=>{},bridge=null}={}){this.link=link;this.sleep=sleep;this.check=check;this.bridge=bridge;}
   async spi(tx,read=0) {
     this.check();
     if(!tx.length || tx.length>252 || read<0 || read>240)fail('BM83_SPI','Dimensione transazione SPI non valida.');
@@ -56,6 +57,16 @@ export class Bm83SpiFlash {
     if(!Number.isInteger(address)||!Number.isInteger(length)||address<0||length<0||address+length>FLASH_SIZE)
       fail('BM83_SPI','Lettura fuori Flash.');
     const bytes=new Uint8Array(length);
+    if(this.bridge) {
+      for(let offset=0;offset<length;offset+=4096) {
+        this.check();const count=Math.min(4096,length-offset);
+        const line=await this.bridge.rpc('ZN_BM83_READ '+(address+offset).toString(16).padStart(8,'0')+' '+count.toString(16).padStart(4,'0'),'READ',15000);
+        const raw=line.slice(12).trim();
+        if(raw.length!==count*2 || !/^(?:[a-f\d]{2})+$/i.test(raw))fail('BM83_SPI','Blocco letto incompleto.');
+        bytes.set(Uint8Array.from(raw.match(/../g),v=>parseInt(v,16)),offset);onProgress(offset+count,length);
+      }
+      return bytes;
+    }
     for(let offset=0;offset<length;offset+=240){
       const count=Math.min(240,length-offset);
       bytes.set(await this.spi([3,...addressBytes(address+offset)],count),offset);
@@ -84,6 +95,18 @@ export class Bm83SpiFlash {
   async sector(address,bytes) {
     if(address%4096 || bytes.length!==4096 || address<0 || address+4096>FLASH_SIZE || (address>=0x2000&&address<0x4000))
       fail('BM83_SPI','Settore Flash non consentito.');
+    if(this.bridge) {
+      this.check();
+      await this.bridge.rpc('ZN_BM83_SECTOR '+address.toString(16).padStart(8,'0'),'SECTOR');
+      for(let offset=0;offset<4096;offset+=512){
+        this.check();const reply=await this.bridge.rpc('ZN_BM83_CHUNK '+offset.toString(16).padStart(4,'0')+' '+hex(bytes.subarray(offset,offset+512)),'CHUNK');
+        if(reply.trim()!=='[BM83] CHUNK='+(offset+512))fail('BM83_SPI','Offset buffer STM32 non confermato.');
+      }
+      this.check();const crc=crc32(bytes).toString(16).padStart(8,'0');
+      const reply=await this.bridge.rpc('ZN_BM83_PROGRAM '+crc,'PROGRAM',15000);
+      if(reply.trim().toLowerCase()!=='[bm83] program=ok crc='+crc)fail('BM83_FLASH_VERIFY','Conferma settore STM32 non valida.');
+      return;
+    }
     await this.enableWrite();await this.spi([0x20,...addressBytes(address)]);await this.ready();
     // ROM command input buffers are smaller than standard HCI's length
     // field. Keep vendor SPI programs within a 43-byte HCI command frame
@@ -148,7 +171,10 @@ export class Bm83FlashUpdater {
       if(bridge.info?.bm83_bridge!==3)fail('BM83_BRIDGE_REQUIRED','La programmazione TEST richiede il firmware STM32 con bridge v3.');
       if(link.flashId!=='bf2641')fail('BM83_FLASH_UNSUPPORTED','Flash non supportata: '+link.flashId+'. Nessuna cancellazione eseguita.');
       detailed=false;context={phase:'BACKUP'};
-      flash=new Bm83SpiFlash(link,{sleep:this.sleep,check});
+      const capabilities=await bridge.rpc('ZN_BM83_INFO?','BRIDGE');
+      const batch=/\bSPI_BATCH=4096\b/.test(capabilities);
+      log({kind:'TRANSFER_MODE',usbBlock:batch?4096:32,executor:batch?'STM32':'BROWSER'});
+      flash=new Bm83SpiFlash(link,{sleep:this.sleep,check,bridge:batch?bridge:null});
       // Mark the programming session before backup, including recovery.
       await bridge.rpc('ZN_BM83_GUARD ON','GUARD');guarded=true;
       const backup=await flash.read(0,FLASH_SIZE,(n,total)=>progress('BM83_BACKUP',n,total,'BACKUP'));
