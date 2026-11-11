@@ -8,6 +8,38 @@ const be32=n=>[(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255];
 export const BM83_ACK_STATUS=Object.freeze({0:'Command complete',1:'Command disallow',2:'Unknown command',3:'Parameters error',4:'BTM is busy',5:'BTM memory is full'});
 const DFU_PHASE=['Start_Req','Mcu_Image_Init','Dsp_Image_Init','Factory_Image_Init','Image_Update','Image_Validate','DFU_End','DFU_Reset'];
 const summary=bytes=>({bytes:bytes.length,hex:hex(bytes.subarray(0,96)),truncated:bytes.length>96});
+const DEVICE_STATE={0:'Power OFF',1:'Pairing',2:'Standby',3:'HF connesso',4:'A2DP connesso',5:'SPP connesso',6:'Profili connessi'};
+export async function prepareBm83Standby(bridge,{sleep=pause,notify=()=>{}}={}) {
+  let state=await bridge.readState();const before=state;
+  let poweredOn=false,pairingExited=false;
+  // Reset/TEST exit can leave the application alive but its Bluetooth system
+  // logically OFF. Per Microchip DS50002896A 4.6.2, power-on requires BOTH
+  // MMI actions 51 (press) and 52 (release). No settings/Flash are changed.
+  if(state===0) {
+    notify({state:'BM83_POWERING_ON',deviceState:state,stateName:DEVICE_STATE[state]});
+    await bridge.command(0x02,[0,0x51],4000,{phase:'Power_On_Press'});
+    await sleep(20);
+    await bridge.command(0x02,[0,0x52],4000,{phase:'Power_On_Release'});
+    poweredOn=true;
+  }
+  for(let poll=0;poll<32;poll++) {
+    if(state===2) {
+      notify({state:'BM83_LOG',kind:'STANDBY_READY',before,deviceState:state,poweredOn,pairingExited});return state;
+    }
+    if(state===1 && !pairingExited) {
+      notify({state:'BM83_LEAVING_PAIRING',deviceState:state});
+      await bridge.command(0x02,[0,0x6b],4000,{phase:'Exit_Pairing'});pairingExited=true;
+    }else if(state!==0 && state!==1) {
+      throw new UpdateError('BM83_NOT_STANDBY',`Stato ${state} (${DEVICE_STATE[state]||'sconosciuto'}): scollega il Bluetooth del telefono e termina chiamate/audio. Nessun comando DFU inviato.`);
+    }
+    await sleep(250);state=await bridge.readState();
+  }
+  if(state===2) {
+    notify({state:'BM83_LOG',kind:'STANDBY_READY',before,deviceState:state,poweredOn,pairingExited});return state;
+  }
+  throw new UpdateError(state===0?'BM83_POWER_ON_FAILED':'BM83_NOT_STANDBY',
+    `Stato ${state} (${DEVICE_STATE[state]||'sconosciuto'}) dopo la preparazione. ${state===0?'Accendi il BM83 con il suo tasto e riprova.':'Disattiva il Bluetooth del telefono e verifica lo standby.'} Nessun comando DFU inviato.`);
+}
 export function bm83Packet(command, parameters=[]) {
   const length=parameters.length+1;
   if(length>2048)throw new UpdateError('BM83_PROTOCOL','Packet too large.');
@@ -115,10 +147,11 @@ export class Bm83Bridge {
   }
   async version() {return Array.from(await this.readVersion(0)).join('.');}
   async readState() {
+    this.events=this.events.filter(e=>e.event!==0x1e);
     await this.command(0x0d);
     const reply=await this.wait(e=>e.event===0x1e);
     if(!reply.parameters.length)throw new UpdateError('BM83_PROTOCOL','Risposta stato BM83 vuota.');
-    this.log({kind:'LINK_STATE',deviceState:reply.parameters[0],raw:hex(reply.parameters)});
+    this.log({kind:'LINK_STATE',deviceState:reply.parameters[0],stateName:DEVICE_STATE[reply.parameters[0]]||'sconosciuto',raw:hex(reply.parameters)});
     return reply.parameters[0];
   }
 }
@@ -161,10 +194,8 @@ export class Bm83Updater {
       // Check that this installed application supports the identity queries
       // we will require after reboot, before sending any DFU mutation.
       for(const part of image.images)if(part.version)await bridge.readVersion(part.type===0?3:4);
-      if(bridge.readState) {
-        const state=await bridge.readState();
-        if(state!==2)throw new UpdateError('BM83_NOT_STANDBY',`Stato dispositivo ${state}: serve standby (2). Scollega le connessioni Bluetooth e termina chiamate/audio.`);
-      }
+      context={phase:'PREPARE_STANDBY'};
+      if(bridge.readState)await prepareBm83Standby(bridge,{sleep:this.sleep,notify:this.notify});
       this.notify({state:'BM83_START',before});
       const sizes=[0,0,0];for(const part of image.images)sizes[part.type]=part.bytes.length;
       const dfu=async(parameters,timeout,detail={})=>{

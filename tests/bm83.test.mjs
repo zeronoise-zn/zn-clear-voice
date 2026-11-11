@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {parseBm83Hex,bm83Crc,inspectBm83Image} from '../docs/bm83-image.js';
-import {bm83Packet,Bm83Parser,Bm83Bridge,Bm83Updater} from '../docs/bm83-updater.js';
+import {bm83Packet,Bm83Parser,Bm83Bridge,Bm83Updater,prepareBm83Standby} from '../docs/bm83-updater.js';
 import {hciCommand,HciEventParser,testBm83Uart} from '../docs/bm83-test-link.js';
 function record(address,kind,data) {
   const b=[data.length,address>>8,address&255,kind,...data];
@@ -146,6 +146,35 @@ test('Non-standby state is checked before any DFU mutation',async()=>{
   const updater=new Bm83Updater({},()=>{},{bridgeFactory:()=>bridge});
   await assert.rejects(updater.run(image),/BM83_NOT_STANDBY/);
   assert.equal(commands,0);assert.equal(closed,true);assert.equal(updater.busy,false);
+});
+
+test('Power OFF after TEST is prepared with power press/release and pairing exit before standby',async()=>{
+  const states=[0,0,1,2],commands=[],events=[];
+  const bridge={async readState(){return states.shift();},async command(c,p){commands.push([c,...p]);}};
+  assert.equal(await prepareBm83Standby(bridge,{sleep:async()=>{},notify:e=>events.push(e)}),2);
+  assert.deepEqual(commands,[[2,0,0x51],[2,0,0x52],[2,0,0x6b]]);
+  assert.equal(events.at(-1).kind,'STANDBY_READY');assert.equal(events.at(-1).poweredOn,true);
+  assert.deepEqual([...bm83Packet(2,[0,0x51])],[0xaa,0,3,2,0,0x51,0xaa]);
+  assert.deepEqual([...bm83Packet(2,[0,0x52])],[0xaa,0,3,2,0,0x52,0xa9]);
+});
+
+test('Standby is left unchanged; failed power-on is bounded and never bypasses state check',async()=>{
+  let commands=[],reads=0;
+  const standby={async readState(){return 2;},async command(c,p){commands.push([c,...p]);}};
+  assert.equal(await prepareBm83Standby(standby),2);assert.deepEqual(commands,[]);
+  const off={async readState(){reads++;return 0;},async command(c,p){commands.push([c,...p]);}};
+  await assert.rejects(prepareBm83Standby(off,{sleep:async()=>{}}),/BM83_POWER_ON_FAILED/);
+  assert.equal(reads,33);assert.deepEqual(commands,[[2,0,0x51],[2,0,0x52]]);
+});
+
+test('Power-on command failure stops before DFU and preserves the actual NACK',async()=>{
+  const image=await inspectBm83Image(fixture().text),commands=[];let closed=false;
+  const bridge={async open(){},async close(){closed=true;},async version(){return '2.7';},
+    async readVersion(){return image.images[0].version;},async readState(){return 0;},
+    async command(c,p){commands.push([c,...p]);throw new Error('Power_On_Press: Parameters error');}};
+  const updater=new Bm83Updater({},()=>{},{sleep:async()=>{},bridgeFactory:()=>bridge});
+  await assert.rejects(updater.run(image),/Power_On_Press: Parameters error/);
+  assert.deepEqual(commands,[[2,0,0x51]]);assert.equal(closed,true);assert.equal(updater.busy,false);
 });
 
 test('TEST UART uses the official HCI FC5D packet, confirms old speed and verifies identity at fast speed',async()=>{

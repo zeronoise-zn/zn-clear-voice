@@ -268,6 +268,7 @@ export function startUi(translations, config) {
     const p=event.total?Math.floor(100*event.offset/event.total):null;
     if(p!==null)$('bm83Progress').value=p;
     const states={BM83_CONNECTING:'Collegamento al BM83...',BM83_START:'Avvio aggiornamento BM83...',
+      BM83_POWERING_ON:'Accensione BM83 via UART e attesa standby...',BM83_LEAVING_PAIRING:'Uscita dal pairing e attesa standby...',
       BM83_SENDING:`Invio ${event.part || ''}: ${p ?? 0}%`,BM83_VALIDATING:`Verifica CRC ${event.part || ''} sul BM83...`,
       BM83_REBOOTING:'Riavvio BM83...',BM83_COMPLETE:'Immagini validate dal BM83; versioni MCU/DSP corrispondenti dopo il riavvio.',
       BM83_REBOOT_UNVERIFIED:'Trasferimento terminato; riavvio BM83 non verificato.',BM83_FAILED:'Aggiornamento BM83 non completato.'};

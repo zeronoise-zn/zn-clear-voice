@@ -53,7 +53,8 @@ e distingue la programmazione UART in TEST a pagina 6.
 rimane a 115200. Il programmatore Flash isUpdate/TEST non e implementato.
 Non viene modificata la configurazione UART persistente dell'applicazione BM83.
 Il cambio TEST a 921600 e verificato da test di protocollo e pagina con seriale
-simulata; non e ancora stato provato sulla scheda reale.
+simulata; il successivo log di collaudo dell'utente lo conferma anche sulla
+scheda reale (vedi sotto).
 
 Per usare subito il log basta ricaricare la pagina locale con Ctrl+F5;
 e compatibile con il bridge v1 gia installato. La prova UART veloce richiede
@@ -66,9 +67,39 @@ Il pacchetto v2 e stato successivamente installato via USB sulla scheda reale:
 21.660 byte di payload, SHA-256 del pacchetto
 `946726bc242c1c89e42738f0f32ed68baf0503e0f583b0f23338f3e5de0553b1`.
 Verificati `bm83_bridge: 2`, END accettato, riavvio con identita corrispondente,
-`RUNNING`, `CONFIRMED=1` e `UART_ERRORS=0`. La prova HCI a 921600 sulla scheda
-rimane distinta e ancora da eseguire. Nessuna Flash BM83 scritta durante
+`RUNNING`, `CONFIRMED=1` e `UART_ERRORS=0`. Nessuna Flash BM83 scritta durante
 questa installazione STM32.
+
+### Riscontro dal log utente e preparazione standby
+
+Il log dell'11 novembre 2026 conferma il cambio a 921600 sulla scheda:
+ACK FC5D `04 0E 04 01 5D FC 00`, poi nuova risposta HCI Local Version
+`04 0E 0C 01 01 10 00 08 00 02 08 39 00 00 02` alla velocita alta.
+Identita invariata `0800020839000002`, nessuna scrittura Flash in questa prova.
+
+Nei successivi tre tentativi il file selezionato e `BT_HEADSET_V0_11A8.HEX`,
+SHA-256 `a8b8306c8f36bb35bbfd39f98d855fb6e3b024a14916c0d88d87c0d097c90b88`:
+MCU/DSP hanno gli stessi CRC della REV01, configurazione da 624 byte,
+totale 782528 byte. Il file non e stato copiato nel repository pubblico.
+Il BM83 risponde a Read_Link_Status con `00 00 00 00 00 00 00`:
+**stato 0 = Power OFF logico**, pur con processore e UART alimentati.
+Il preflight si arresta prima di qualunque comando 0x49. Questi tentativi non
+identificano la fase del precedente NACK 3 e non ne dimostrano la causa.
+
+La pagina ora prepara lo standby quando si avvia il caricamento: se OFF,
+invia MMI 0x02 con `[00,51]` (Power On Press), poi `[00,52]` (Release).
+Se entra in pairing, invia una sola volta `[00,6B]` (Exit Pairing).
+Aspetta uno stato interrogato 2 prima del primo comando DFU. Sono consentite
+al massimo 32 interrogazioni con pausa 250 ms; ACK persi o NACK interrompono
+la sequenza senza ritentare le azioni. Connessioni HF/A2DP/SPP esistenti
+producono un errore specifico e non vengono disconnesse automaticamente.
+Il log registra Power_On_Press, Power_On_Release e STANDBY_READY.
+Se resta OFF viene chiesta l'accensione tramite il tasto del modulo.
+
+La sequenza di accensione e documentata in
+[DS50002896A, sezione 4.6.2, pagina 26](https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/UserGuides/BM83_Host_MCU_Firmware_Development_Guide_DS50002896A.pdf)
+ed e presente nel sorgente PIC32 AT v1.0.1 del pacchetto Microchip locale.
+La modifica riguarda soltanto il client web e funziona col bridge v2 installato.
 
 La sezione BM83 appare per HEADSET_BT in applicazione. SerialTransport conserva
 l'unico reader Web Serial; diagnostica, update STM32 e BM83 sono esclusivi.
