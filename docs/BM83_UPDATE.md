@@ -6,16 +6,17 @@ Applicazione STM32 compilata, rigenerata con CubeMX e installata via USB sulla
 scheda. Bridge UART, reset e lettura versioni verificati sul BM83 reale. Pagina
 verificata in Chrome con seriale simulata; i suoi moduli JS sono stati provati
 anche verso la scheda tramite un adattatore seriale di test Python.
-Il ciclo completo di **scrittura Flash BM83** non e ancora stato eseguito:
-la funzione resta in collaudo.
+Il ciclo completo di **scrittura Flash BM83** non e ancora riuscito:
+il trasferimento MCU DFU raggiunge CONFIG ma Image_Validate restituisce stato 3.
+La funzione resta in collaudo; END non viene inviato dopo il rifiuto.
 
 ### Aggiornamento log e UART v2
 
 Il collaudo dell'utente ha segnalato `Command_Ack` per 0x49 con stato 3.
 In AudioUARTCommandSet v2.10, sezione 7.1, **3 = Parameters error**;
 1 = Command disallow e 2 = Unknown command. Il precedente messaggio generico
-"Put the module in standby and retry" era errato. Non e ancora nota la fase
-del rifiuto reale e non si dichiara risolta la causa del NACK.
+"Put the module in standby and retry" era errato. Il successivo log identifica
+Image_Validate / CONFIG come fase del rifiuto; la causa del NACK resta aperta.
 
 La pagina ora mostra un log BM83 dedicato e consente di scaricarlo come JSONL.
 Registra identita STM32, SHA del file, dimensioni e CRC dei componenti, stato
@@ -37,8 +38,11 @@ Il pulsante **Verifica UART veloce** esegue solo una prova senza scrittura Flash
 entra in TEST, legge HCI Local Version (0x1001), chiede la velocita al BM83 con
 HCI vendor FC5D e baud a 32 bit little endian, attende Command Complete a
 velocita iniziale, attende 1000 ms, cambia la UART del bridge e verifica che
-Local Version risponda identico alla nuova velocita. Poi chiude TEST e applica
-reset. Se manca l'ACK, non cambia la UART e non dichiara la velocita verificata.
+Local Version risponda identico alla nuova velocita. Esegue poi 32 letture delle
+identita ROM (FC20) e JEDEC Flash (FCA4, SPI Read ID 9F), richiedendo risposte
+valide e identiche. FC20 non ha un byte status dopo l'opcode; FCA4 lo ha.
+Poi chiude TEST e applica reset. Se manca l'ACK, non cambia la UART; errori del
+bridge o identita instabili impediscono di dichiarare verificata la velocita.
 
 Questa sequenza e stata confrontata offline con la routine 0x409030 di
 isUpdate incluso in AT v1.0.1 del pacchetto ufficiale locale Turnkey 1.3.1;
@@ -156,7 +160,11 @@ XOR finale. Vettore `123456789` = 0x89F6; stesso algoritmo del sorgente MBA.
 PA2=USART2_TX verso RX BM83, PA3=USART2_RX da TX BM83, 115200 8N1.
 PA5 HIGH accende Q1 e tira P3_4 LOW; PA6 HIGH accende Q2 e tira RST_N LOW.
 PA5/PA6 inizialmente LOW. Ricezione a interrupt, ring 4096 byte (4095 utili).
-USART2 IRQ priorita 1 e conservato nel progetto CubeMX.
+USART2 IRQ priorita 0 e conservato nel progetto CubeMX. Il bridge imposta USB
+a priorita 1: la ricezione UART puo interrompere USB anche a 921600 baud.
+USART2 del C071 non ha FIFO. Sul firmware precedente il test HCI breve passa,
+ma le identificazioni ROM/Flash riproducono ORE (0x00000008). La correzione
+delle priorita elimina l'overrun nel test esteso reale di 32 letture ripetute.
 
 USB CDC 230400, comandi ASCII terminati LF. I byte UART sono incapsulati in
 HEX per conservare il controllo della pagina. Non e una seriale trasparente

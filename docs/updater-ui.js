@@ -321,7 +321,7 @@ export function startUi(translations, config) {
     try {
       const pending=bm83.testUart(Number($('bm83Baud').value));controls();
       const result=await pending;
-      $('bm83Status').textContent=`UART di programmazione verificata a ${result.baud} baud. Il BM83 è tornato in modalità normale. Nessuna Flash scritta.`;
+      $('bm83Status').textContent=`UART TEST verificata a ${result.baud} baud: ${result.identificationRounds} letture ROM/Flash, ID ${result.flashId}. BM83 tornato in modalità normale. Nessuna Flash scritta; caricamento MCU DFU ancora a 115.200 baud.`;
     }catch(e){$('bm83Status').textContent=e.message;bm83Record({kind:'FAST_UART_ERROR',error:e});}
     finally{controls();}
   });

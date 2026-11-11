@@ -23,24 +23,27 @@ export class HciEventParser {
 }
 
 // TEST/ROM uses HCI vendor commands, not the application's AA/0x49 protocol.
-// isUpdate 2.97 (official AT 1.0.1 tool), routine 0x409030, sends FC5D with
+// Official AT 1.0.1 isUpdate tool, routine 0x409030, sends FC5D with
 // the 32-bit little-endian baud. It requires Command Complete success at the
 // OLD baud, waits 1000ms, then changes the host UART. No Flash command below.
-export async function testBm83Uart(bridge,baud,{sleep=ms=>new Promise(r=>setTimeout(r,ms)),log=()=>{}}={}) {
+export async function testBm83Uart(bridge,baud=921600,{sleep=ms=>new Promise(r=>setTimeout(r,ms)),log=()=>{}}={}) {
   if(![115200,230400,460800,921600].includes(baud))throw new UpdateError('BM83_BAUD','Velocita UART non supportata.');
   await bridge.open('TEST');
   let parser=new HciEventParser(),queue=[];
-  const command=async(opcode,parameters=[])=>{
+  const command=async(opcode,parameters=[],statusByte=true)=>{
     const raw=hciCommand(opcode,parameters),name='0x'+opcode.toString(16).padStart(4,'0');
     log({kind:'HCI_TX',opcode:name,packet:hex(raw)});
     await bridge.send(raw);const deadline=Date.now()+4000;
     while(Date.now()<deadline) {
-      const index=queue.findIndex(e=>e.event===0x0e && e.parameters.length>=4 && (e.parameters[1]|e.parameters[2]<<8)===opcode);
+      const index=queue.findIndex(e=>e.event===0x0e && e.parameters.length>=3 && (e.parameters[1]|e.parameters[2]<<8)===opcode);
       if(index>=0) {
         const ack=queue.splice(index,1)[0];
-        log({kind:'HCI_ACK',opcode:name,status:ack.parameters[3],packet:hex(ack.raw)});
-        if(ack.parameters[3]!==0)throw new UpdateError('BM83_HCI_NACK',`${name}: stato ${ack.parameters[3]}.`);
-        return ack.parameters.slice(4);
+        // FC20 returns the ROM name immediately after the opcode, without
+        // a status byte. Standard HCI and FCA4 responses include status.
+        const status=statusByte?ack.parameters[3]:null;
+        log({kind:'HCI_ACK',opcode:name,status,packet:hex(ack.raw)});
+        if(statusByte && status!==0)throw new UpdateError('BM83_HCI_NACK',`${name}: stato ${status}.`);
+        return ack.parameters.slice(statusByte?4:3);
       }
       const line=await bridge.rpc('ZN_BM83_RX?','DATA'),value=line.slice(12).trim();
       if(!/^(?:[a-f\d]{2})*$/i.test(value))throw new UpdateError('BM83_HCI','Risposta bridge non valida.');
@@ -63,6 +66,24 @@ export async function testBm83Uart(bridge,baud,{sleep=ms=>new Promise(r=>setTime
   }
   const after=await command(0x1001);
   if(hex(before)!==hex(after))throw new UpdateError('BM83_HCI','Identita diversa dopo il cambio velocita.');
-  log({kind:'TEST_UART_VERIFIED',baud,identity:hex(after),flashWritten:false});
-  return {baud,identity:hex(after),flashWritten:false};
+  // A single short reply can pass despite UART overrun under USB load.
+  // Read ROM/JEDEC identities repeatedly, using ONLY the vendor tool's
+  // identification commands (42A360). Never initialize/erase/write Flash.
+  let rom,flashId;
+  for(let round=0;round<32;round++) {
+    const device=await command(0xfc20,[],false);
+    if(device.length!==22 || new TextDecoder().decode(device.slice(0,7))!=='BT5511_')
+      throw new UpdateError('BM83_HCI','Identita ROM BM83 non riconosciuta.');
+    const flash=await command(0xfca4,[0,3,1,0x9f]); // SPI Read JEDEC ID only.
+    if(flash.length!==5 || flash[0]!==0x9f || flash[1]!==3 ||
+       flash.slice(2).every(b=>b===0) || flash.slice(2).every(b=>b===255))
+      throw new UpdateError('BM83_HCI','Identificativo Flash non valido.');
+    const nextRom=hex(device),nextFlash=hex(flash.slice(2));
+    if(round && (nextRom!==rom || nextFlash!==flashId))
+      throw new UpdateError('BM83_HCI','Identita ROM/Flash instabile alla velocita selezionata.');
+    rom=nextRom;flashId=nextFlash;
+  }
+  const result={baud,identity:hex(after),rom,flashId,identificationRounds:32,flashWritten:false};
+  log({kind:'TEST_UART_VERIFIED',...result});
+  return result;
 }

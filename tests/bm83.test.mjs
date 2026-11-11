@@ -180,11 +180,13 @@ test('Power-on command failure stops before DFU and preserves the actual NACK',a
 test('TEST UART uses the official HCI FC5D packet, confirms old speed and verifies identity at fast speed',async()=>{
   assert.deepEqual([...hciCommand(0xfc5d,[0,0x10,0x0e,0])],[1,0x5d,0xfc,4,0,0x10,0x0e,0]);
   const identity=[8,1,0,8,0x46,0,1,0],calls=[],logs=[];let rx=[],hostBaud=115200;
+  const rom=[...new TextEncoder().encode('BT5511_002'),...new Array(12).fill(0)];
   const bridge={async open(mode){assert.equal(mode,'TEST');},async send(raw){
     const opcode=raw[1]|raw[2]<<8;calls.push(['HCI',opcode,hostBaud]);
-    assert([0x1001,0xfc5d].includes(opcode));
+    assert([0x1001,0xfc5d,0xfc20,0xfca4].includes(opcode));
     if(opcode===0xfc5d)assert.equal(hostBaud,115200);
-    const parameters=[1,raw[1],raw[2],0,...(opcode===0x1001?identity:[])];
+    if(opcode===0xfca4)assert.deepEqual([...raw],[1,0xa4,0xfc,4,0,3,1,0x9f]);
+    const parameters=[1,raw[1],raw[2],...(opcode===0xfc20?rom:[0,...(opcode===0x1001?identity:opcode===0xfca4?[0x9f,3,0xbf,0x26,0x41]:[])])];
     rx.push(4,0x0e,parameters.length,...parameters);
   },async rpc(command){
     if(command.startsWith('ZN_BM83_BAUD ')){
@@ -194,11 +196,35 @@ test('TEST UART uses the official HCI FC5D packet, confirms old speed and verifi
   }};
   const result=await testBm83Uart(bridge,921600,{sleep:async()=>{},log:e=>logs.push(e)});
   assert.equal(result.baud,921600);assert.equal(result.flashWritten,false);
-  assert.deepEqual(calls,[['HCI',0x1001,115200],['HCI',0xfc5d,115200],['BAUD',921600],['HCI',0x1001,921600]]);
+  assert.deepEqual(calls.slice(0,4),[['HCI',0x1001,115200],['HCI',0xfc5d,115200],['BAUD',921600],['HCI',0x1001,921600]]);
+  assert.deepEqual(calls.slice(4),Array.from({length:32},()=>[['HCI',0xfc20,921600],['HCI',0xfca4,921600]]).flat());
+  assert.equal(result.flashId,'bf2641');assert.equal(result.identificationRounds,32);
   assert.equal(logs.at(-1).kind,'TEST_UART_VERIFIED');
   const parser=new HciEventParser();assert.deepEqual(parser.push([4,14]),[]);
   assert.equal(parser.push([4,1,0x5d,0xfc,0])[0].event,14);
   assert.throws(()=>new HciEventParser().push([0xaa]),/BM83_HCI/);
+});
+
+test('Fast UART probe rejects overrun and unstable identification; never reports verified or writes Flash',async()=>{
+  for(const fault of ['overrun','identity']) {
+    const logs=[];let rx=[],reads=0,closed=false;
+    const rom=[...new TextEncoder().encode('BT5511_002'),...new Array(12).fill(0)];
+    const bridge={async open(){},async close(){closed=true;},async send(raw){
+      const opcode=raw[1]|raw[2]<<8;
+      assert([0x1001,0xfc5d,0xfc20,0xfca4].includes(opcode));
+      if(opcode===0xfca4)reads++;
+      const payload=opcode===0xfc20?rom:[0,...(opcode===0x1001?new Array(8).fill(0):opcode===0xfca4?[0x9f,3,0xbf,0x26,reads===2?0x42:0x41]:[])];
+      const p=[1,raw[1],raw[2],...payload];rx.push(4,14,p.length,...p);
+    },async rpc(command){
+      if(command.startsWith('ZN_BM83_BAUD '))return '[BM83] BAUD=921600';
+      if(fault==='overrun' && reads===1)throw new Error('[BM83] ERROR=UART_FAULT');
+      return '[BM83] DATA='+Buffer.from(rx.splice(0)).toString('hex');
+    }};
+    const updater=new Bm83Updater({},e=>logs.push(e),{sleep:async()=>{},bridgeFactory:()=>bridge});
+    await assert.rejects(updater.testUart(),fault==='overrun'?/UART_FAULT/:/instabile/);
+    assert.equal(closed,true);assert.equal(updater.busy,false);
+    assert(!logs.some(e=>e.kind==='TEST_UART_VERIFIED'));
+  }
 });
 
 test('Failed TEST baud negotiation never switches host baud and releases bridge',async()=>{
