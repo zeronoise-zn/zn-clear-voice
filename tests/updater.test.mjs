@@ -310,7 +310,7 @@ test('Existing UI controller: no permission on load, selected package/errors, co
     assert.equal(get('updateButton').disabled,true); // No old target while version refresh is in flight.
     finishManifest({ok:true,json:async()=>({targets:[]})}); await refresh;
     assert.equal(get('updateButton').disabled,false);
-    await get('updateButton').fire('click'); assert.equal(get('releaseBadge').textContent,'UPDATE COMPLETE',get('technicalLog').textContent);
+    await get('updateButton').fire('click'); assert.equal(get('releaseBadge').textContent,'Update complete',get('technicalLog').textContent);
     assert.match(get('progressDetail').textContent,/full identity matched; CONFIRMED=1 observed/);
     assert.equal(get('progressPercent').textContent,'100%'); assert.equal(get('progressBytes').textContent,'2052 / 2052 bytes');
     assert.match(get('technicalLog').textContent,/TX DATA .*offset=/);
@@ -319,7 +319,7 @@ test('Existing UI controller: no permission on load, selected package/errors, co
     assert.match(get('diagnosticInfo').textContent,/BOOT_CONFIRM_RESULT/);
     assert.match(get('diagnosticInfo').textContent,/SUCCESS/);
     await get('connectButton').fire('click'); assert.equal(port.readable,null);
-    assert.notEqual(get('releaseBadge').textContent,'UPDATE COMPLETE');
+    assert.notEqual(get('releaseBadge').textContent,'Update complete');
     engine.state=0; engine.offset=0;
     port.handler = async (bytes,p) => {
       if(bytes[0]===10 || bytes.length===1) return; // Recovery ignores ASCII.
@@ -329,13 +329,13 @@ test('Existing UI controller: no permission on load, selected package/errors, co
     await get('connectButton').fire('click');
     assert.equal(get('currentVersionValue').textContent,'Recovery');
     assert.equal(port.options.baudRate,230400);
-    assert.equal(get('releaseBadge').textContent,'UPDATE NOT CONFIRMED');
+    assert.equal(get('releaseBadge').textContent,'Update not confirmed');
     assert.match(get('installationStatus').textContent,/recovery/);
     await get('connectButton').fire('click');
     const otherPort = new FakePort(applicationHandler);
     navigator.serial.requestPort = async () => otherPort;
     await get('connectButton').fire('click');
-    assert.notEqual(get('releaseBadge').textContent,'UPDATE COMPLETE');
+    assert.notEqual(get('releaseBadge').textContent,'Update complete');
     assert.match(get('technicalLog').textContent,/previous END acceptance discarded/);
     await get('connectButton').fire('click');
   } finally {

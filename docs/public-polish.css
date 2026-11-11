@@ -4,7 +4,6 @@
    the public surface. The official website links remain available from the two
    clickable brand logos in the header. */
 .site-links,
-.support-inline,
 footer {
   display: none !important;
 }
@@ -282,3 +281,35 @@ footer {
     text-align: left;
   }
 }
+
+/* Keep technical tools available only inside the closed assistance section. */
+.support-inline summary { padding: 18px 24px; font-size: 12px; color: var(--muted-2); }
+.support-inline summary::after { content: ' +'; float: right; }
+.support-inline[open] > summary::after { content: ' -'; }
+.advanced-content { padding: 0 24px 18px; font-size: 12px; color: var(--muted); }
+.advanced-content .device-facts { margin-top: 18px; }
+#bm83AdvancedControls { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 12px; }
+#bm83AdvancedControls p { line-height: 1.5; }
+#bm83AdvancedControls label, #bm83AdvancedControls input, #bm83AdvancedControls select { display: block; max-width: 100%; margin: 10px 0; }
+#bm83AdvancedControls select { padding: 8px; background: var(--panel); color: var(--text); }
+#bm83AdvancedControls .support-actions { flex-direction: row; flex-wrap: wrap; margin: 14px 0; }
+#bm83AdvancedControls pre { max-height: 300px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; }
+#bm83Panel { padding: 24px 28px; }
+.audio-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.audio-heading h2 { margin: 0; font-size: 22px; }
+.audio-version { color: var(--muted); font-size: 12px; }
+#bm83Panel .audio-status { color: var(--text); font-size: 16px; font-weight: 700; margin: 20px 0 0; }
+#bm83Panel .audio-help { font-size: 11px; color: var(--muted-2); }
+.audio-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+#bm83Cancel:disabled { display: none; }
+#bm83Progress { height: 8px; border: 0; border-radius: 8px; overflow: hidden; }
+#bm83Progress::-webkit-progress-bar { background: rgba(255,255,255,.075); }
+#bm83Progress::-webkit-progress-value { background: var(--accent); }
+@media (max-width: 520px) {
+  #bm83Panel { padding: 22px; }
+  .audio-actions > button { width: 100%; }
+  .advanced-content { padding-left: 18px; padding-right: 18px; }
+}
+
+#releasePanel .firmware-version-hint:not(.downgrade) { display: none; }
+.main-card #releasePanel { min-height: 0; }

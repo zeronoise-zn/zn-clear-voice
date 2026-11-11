@@ -399,3 +399,12 @@ Test automatici e browser Chrome con seriale simulata coprono catalogo/hash,
 prima installazione, riconnessione autorizzata senza dialoghi, confronto CONFIG,
 assenza di riscritture con RUNTIME modificato, calibrazione e blocco downgrade.
 La procedura automatica completa va ancora collaudata sulla scheda reale.
+
+## Interfaccia pubblica
+
+La vista ordinaria mostra connessione, versioni pubbliche, avanzamento e
+aggiornamento audio con messaggi semplici. Log, dettagli di build, diagnostica,
+velocita UART, protocolli, caricamento HEX manuale e backup precedenti si trovano
+in Assistenza e opzioni avanzate, chiusa inizialmente. Anche il log BM83 resta
+chiuso. L'opzione automatica e modificabile nella stessa sezione prima della
+connessione. I log continuano a essere raccolti ed esportabili per assistenza.

@@ -90,6 +90,7 @@ export function startUi(translations, config) {
     $('diagnosticsButton').disabled = !connected || locked;
     const headset=updater?.info?.product==='HEADSET_BT' && updater?.info?.mode==='application';
     $('bm83Panel').hidden=!headset;
+    $('bm83AdvancedControls').hidden=!headset;
     $('bm83File').disabled=locked;
     $('bm83Probe').disabled=!connected || locked || !headset;
     const bridgeReady=[1,2,3].includes(updater?.info?.bm83_bridge);
@@ -114,14 +115,29 @@ export function startUi(translations, config) {
     $('productValue').textContent = PRODUCT_DISPLAY_NAMES.get(info?.product) || info?.product || '—';
     $('mcuValue').textContent = profileByName(info?.product)?.mcu || '—';
     $('hardwareValue').textContent = info?.hardware || '—';
-    $('installedValue').textContent = $('currentVersionValue').textContent = info?.displayId || info?.version || (info?.mode === 'bootloader' ? 'Recovery' : '—');
+    $('installedValue').textContent = info?.displayId || info?.version || (info?.mode === 'bootloader' ? 'Recovery' : '—');
+    $('currentVersionValue').textContent=info?.version || (info?.mode==='bootloader'?'Recovery':'');
     $('serialValue').textContent = 'Not reported';
     if (info?.bootBuildId) log('Bootloader identity (not application)', info.bootBuildId);
     evaluateTarget();
   }
+  function stateLabel(state) {
+    const labels={
+      CONNECTED:['Dispositivo collegato','Device connected'],CONNECTING:['Connessione...','Connecting...'],
+      BEGIN_UPDATE:['Preparazione aggiornamento...','Preparing update...'],SENDING:['Installazione...','Installing...'],
+      TRANSFER_COMPLETE:['Trasferimento completato','Transfer complete'],VERIFYING:['Verifica aggiornamento...','Verifying update...'],
+      FINALIZING:['Riavvio...','Restarting...'],WAITING_FOR_APPLICATION:['Attesa riavvio...','Waiting for restart...'],
+      VERIFYING_INSTALLED_VERSION:['Verifica versione installata...','Checking installed version...'],WAITING_BOOT_CONFIRM:['Verifica avvio...','Checking startup...'],
+      COMPLETE:['Aggiornamento completato','Update complete'],FAILED_RECOVERY:['Aggiornamento non confermato','Update not confirmed'],
+      FAILED:['Aggiornamento non completato','Update failed'],DISCONNECTED:['Dispositivo scollegato','Device disconnected'],
+      READY:['Pronto','Ready'],IDLE:['Pronto','Ready']};
+    return (labels[state]||['Verifica dispositivo...','Checking device...'])[language==='it'?0:1];
+  }
   function notify(event) {
-    const label = {COMPLETE:'UPDATE COMPLETE',TRANSFER_COMPLETE:'TRANSFER COMPLETE',VERIFYING:'BOOTLOADER VERIFYING',
-      FINALIZING:'REBOOTING',FAILED_RECOVERY:'UPDATE NOT CONFIRMED'}[event.state] || event.state;
+    const label=stateLabel(event.state);
+    $('progressHint').textContent=language==='it'?
+      (event.state==='COMPLETE'?'Il dispositivo è aggiornato.':event.state==='CONNECTED'?'Puoi installare la versione selezionata.':'Mantieni il dispositivo collegato durante l\'aggiornamento.'):
+      (event.state==='COMPLETE'?'Your device is up to date.':event.state==='CONNECTED'?'You can install the selected version.':'Keep the device connected during the update.');
     $('progressLabel').textContent = label;
     $('progressDetail').textContent = event.error?.message || event.notice || (event.info?.displayId ?? '');
     // A previous success is historical, never the current device state.
@@ -147,14 +163,14 @@ export function startUi(translations, config) {
     }
     if (event.state === 'COMPLETE') {
       $('progressPercent').textContent = '100%'; $('progressBar').style.width = '100%';
-      $('releaseBadge').textContent = 'UPDATE COMPLETE'; $('releaseBadge').className = 'release-badge current';
+      $('releaseBadge').textContent = stateLabel('COMPLETE'); $('releaseBadge').className = 'release-badge current';
       $('transferStatus').textContent = 'TRANSFER COMPLETE — END accepted';
       $('installationStatus').textContent = 'UPDATE COMPLETE — installed identity matched, BootConfirm observed';
       $('progressDetail').textContent = `${event.info.displayId} — full identity matched; CONFIRMED=1 observed.`;
     }
     if (event.info) renderInfo(event.info);
     if (event.info?.mode === 'bootloader' || event.state === 'FAILED_RECOVERY') {
-      $('releaseBadge').textContent = 'UPDATE NOT CONFIRMED'; $('releaseBadge').className = 'release-badge error';
+      $('releaseBadge').textContent = stateLabel('FAILED_RECOVERY'); $('releaseBadge').className = 'release-badge error';
       $('installationStatus').textContent = 'UPDATE NOT CONFIRMED — device is in recovery mode';
       $('progressDetail').textContent = event.error?.message || 'Recovery detected. Application boot is not verified.';
     }
@@ -167,7 +183,8 @@ export function startUi(translations, config) {
     controls();
   }
   function error(e) {
-    const label = e.code === 'APPLICATION_DID_NOT_START' ? 'UPDATE NOT CONFIRMED' : 'FAILED';
+    const label = stateLabel(e.code === 'APPLICATION_DID_NOT_START' ? 'FAILED_RECOVERY' : 'FAILED');
+    $('progressHint').textContent=language==='it'?'Verifica il collegamento USB. I dettagli sono disponibili in Assistenza.':'Check the USB connection. Details are available in Assistance.';
     $('progressLabel').textContent = label; $('progressDetail').textContent = e.message;
     $('releaseBadge').textContent = label; $('releaseBadge').className = 'release-badge error';
     $('installationStatus').textContent = `UPDATE NOT CONFIRMED — ${e.message}`;
@@ -304,6 +321,22 @@ export function startUi(translations, config) {
     if(event.kind==='SESSION')bm83UsbBlock=0;
     if(event.kind==='TRANSFER_MODE')bm83UsbBlock=event.usbBlock;
     if(event.state==='BM83_LOG')return;
+    const friendly={
+      BM83_CATALOG_LOADING:'Ricerca aggiornamenti audio...',BM83_IMAGE_DOWNLOADING:'Download aggiornamento audio...',
+      BM83_ONLINE_REFERENCE:'Verifica del firmware audio installato...',BM83_INSTALLED:'Confronto con la versione disponibile...',
+      BM83_COMPARING:'Verifica aggiornamenti audio...',BM83_CONNECTING:'Collegamento al modulo audio...',BM83_START:'Preparazione aggiornamento audio...',
+      BM83_FLASHING:'Installazione aggiornamento audio...',BM83_SENDING:'Installazione aggiornamento audio...',
+      BM83_FLASH_VERIFY:'Verifica aggiornamento audio...',BM83_VALIDATING:'Verifica aggiornamento audio...',
+      BM83_REBOOTING:'Riavvio del modulo audio...',BM83_COMPLETE:'Firmware audio aggiornato.',BM83_UP_TO_DATE:'Il firmware audio è già aggiornato.',
+      BM83_FAILED:'Aggiornamento audio non completato. Puoi riprovare.',BM83_AUTO_FAILED:'Verifica audio non completata. Puoi riprovare.',
+      BM83_REBOOT_UNVERIFIED:'Installazione terminata. Verifica il funzionamento audio.'};
+    const message=event.error?.code==='BM83_CANCELLED'?'Operazione interrotta. Ripeti l\'aggiornamento se necessario.':
+      event.error?.code==='BM83_BRIDGE_REQUIRED'?'Aggiorna prima il firmware del dispositivo, poi riprova.':
+      event.error?.code==='BM83_CATALOG'?'Download audio non disponibile. Verifica la connessione Internet e riprova.':
+      event.error?.code==='BM83_NEWER_FIRMWARE'?'Il dispositivo contiene un firmware audio più recente. Nessuna modifica eseguita.':friendly[event.state];
+    if(message)$('bm83FriendlyStatus').textContent=message;
+    if(event.state==='BM83_CATALOG_LOADING')$('bm83Progress').value=0;
+    if(event.state==='BM83_ONLINE_REFERENCE')$('bm83FriendlyVersion').textContent='Versione disponibile: REV'+event.revision;
     const version=v=>v?.join('.')||'assente / non leggibile';
     if(event.state==='BM83_ONLINE_REFERENCE')$('bm83Online').textContent=`Web REV${event.revision}: MCU ${version(event.versions.MCU)} · DSP ${version(event.versions.DSP)}`;
     if(event.state==='BM83_INSTALLED')$('bm83Installed').textContent=event.validHeader?`Flash installata: MCU ${version(event.mcu)} · DSP ${version(event.dsp)}. Confronto configurazione in corso.`:'Immagine assente o incompleta: prima installazione / recupero.';
@@ -417,13 +450,17 @@ export function startUi(translations, config) {
   navigator.serial?.addEventListener('connect',()=>void automaticConnection());
   function invalidateConnection() {
     bm83Auto?.cancel();
-    $('releaseBadge').textContent = 'DEVICE DISCONNECTED'; $('releaseBadge').className = 'release-badge neutral';
+    $('releaseBadge').textContent = stateLabel('DISCONNECTED'); $('releaseBadge').className = 'release-badge neutral';
     $('installationStatus').textContent = 'UPDATE NOT CURRENTLY VERIFIED — reconnect to read device state';
-    $('progressLabel').textContent = 'DISCONNECTED';
-    $('installedValue').textContent = $('currentVersionValue').textContent = '—';
+    $('progressLabel').textContent = stateLabel('DISCONNECTED');
+    $('installedValue').textContent = '—';
+    $('currentVersionValue').textContent='';
   }
   function applyLanguage() {
     document.documentElement.lang = language; $('languageSelect').value = language;
+    if(!io?.connected){$('progressLabel').textContent=stateLabel('READY');$('progressHint').textContent=language==='it'?'Collega il dispositivo per iniziare.':'Connect your device to get started.';}
+    const safety=$('safetyCopy');
+    if(safety)safety.textContent=language==='it'?"Non scollegare USB o alimentazione durante l'aggiornamento.":'Do not disconnect USB or power while the update is running.';
     document.querySelectorAll('[data-i18n]').forEach(el => {
       if (!['releaseBadge','progressLabel','progressDetail'].includes(el.id)) el.textContent = t(el.dataset.i18n);
     }); controls();

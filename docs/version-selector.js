@@ -16,51 +16,51 @@
 
   const TEXT = {
     en: {
-      subtitle: 'Connect your ClearVoice. The latest official firmware is selected automatically, or you can choose a previous version.',
+      subtitle: 'Connect your device and check for updates.',
       choose: 'Firmware version', latest: 'Latest', installed: 'Installed', older: 'Previous', newer: 'Newer',
       target: 'Selected version', latestLabel: 'Latest version', selectHint: 'Latest is selected by default. Previous official versions remain available.',
-      noPublished: 'No official firmware published yet', noPublishedNote: 'Publish signed *_PROD.znfw files in the GitHub firmware folder.',
-      repositoryReady: 'Official firmware available', repositoryNote: 'Firmware is read directly from the official ZeroNoise GitHub repository.',
+      noPublished: 'No official firmware published yet', noPublishedNote: 'No update is available at the moment. Try again later.',
+      repositoryReady: 'Official firmware available', repositoryNote: 'Select Update firmware to install the selected version.',
       downgrade: 'Previous version selected', downgradeNote: 'You selected an older firmware version.',
       same: 'This version is already installed', update: 'Update available',
       downgradeConfirm: 'You are about to install an older firmware version. Continue?'
     },
     it: {
-      subtitle: 'Collega il tuo ClearVoice. L’ultimo firmware ufficiale viene selezionato automaticamente, ma puoi scegliere anche una versione precedente.',
+      subtitle: 'Collega il dispositivo e verifica gli aggiornamenti.',
       choose: 'Versione da installare', latest: 'Ultima', installed: 'Installata', older: 'Precedente', newer: 'Più recente',
       target: 'Versione selezionata', latestLabel: 'Ultima versione', selectHint: 'Di default è selezionata l’ultima versione. Le versioni ufficiali precedenti restano disponibili.',
-      noPublished: 'Nessun firmware ufficiale pubblicato', noPublishedNote: 'Pubblica i file firmati *_PROD.znfw nella cartella firmware del repository GitHub.',
-      repositoryReady: 'Firmware ufficiali disponibili', repositoryNote: 'I firmware vengono letti direttamente dal repository GitHub ufficiale ZeroNoise.',
+      noPublished: 'Nessun firmware ufficiale pubblicato', noPublishedNote: 'Nessun aggiornamento disponibile al momento. Riprova più tardi.',
+      repositoryReady: 'Firmware ufficiali disponibili', repositoryNote: 'Premi Aggiorna firmware per installare la versione selezionata.',
       downgrade: 'Versione precedente selezionata', downgradeNote: 'Hai selezionato una versione firmware precedente.',
       same: 'Questa versione è già installata', update: 'Aggiornamento disponibile',
       downgradeConfirm: 'Stai per installare una versione firmware precedente. Continuare?'
     },
     de: {
-      subtitle: 'ClearVoice verbinden. Die neueste offizielle Firmware wird automatisch ausgewählt; ältere Versionen können ebenfalls gewählt werden.',
+      subtitle: 'Verbinden Sie Ihr Gerät und suchen Sie nach Updates.',
       choose: 'Firmware-Version', latest: 'Neueste', installed: 'Installiert', older: 'Älter', newer: 'Neuer',
       target: 'Ausgewählte Version', latestLabel: 'Neueste Version', selectHint: 'Standardmäßig ist die neueste Version ausgewählt. Frühere offizielle Versionen bleiben verfügbar.',
-      noPublished: 'Noch keine offizielle Firmware veröffentlicht', noPublishedNote: 'Signierte *_PROD.znfw-Dateien im GitHub-Firmwareordner veröffentlichen.',
-      repositoryReady: 'Offizielle Firmware verfügbar', repositoryNote: 'Die Firmware wird direkt aus dem offiziellen ZeroNoise GitHub-Repository gelesen.',
+      noPublished: 'Noch keine offizielle Firmware veröffentlicht', noPublishedNote: 'Zurzeit ist kein Update verfügbar. Versuchen Sie es später erneut.',
+      repositoryReady: 'Offizielle Firmware verfügbar', repositoryNote: 'Wählen Sie Firmware aktualisieren, um die ausgewählte Version zu installieren.',
       downgrade: 'Ältere Version ausgewählt', downgradeNote: 'Eine ältere Firmware-Version wurde ausgewählt.',
       same: 'Diese Version ist bereits installiert', update: 'Update verfügbar',
       downgradeConfirm: 'Sie installieren eine ältere Firmware-Version. Fortfahren?'
     },
     fr: {
-      subtitle: 'Connectez votre ClearVoice. Le dernier firmware officiel est sélectionné automatiquement, mais vous pouvez aussi choisir une version antérieure.',
+      subtitle: 'Connectez votre appareil et recherchez les mises à jour.',
       choose: 'Version à installer', latest: 'Dernière', installed: 'Installée', older: 'Antérieure', newer: 'Plus récente',
       target: 'Version sélectionnée', latestLabel: 'Dernière version', selectHint: 'La dernière version est sélectionnée par défaut. Les versions officielles précédentes restent disponibles.',
-      noPublished: 'Aucun firmware officiel publié', noPublishedNote: 'Publiez les fichiers signés *_PROD.znfw dans le dossier firmware GitHub.',
-      repositoryReady: 'Firmware officiel disponible', repositoryNote: 'Le firmware est lu directement depuis le dépôt GitHub officiel ZeroNoise.',
+      noPublished: 'Aucun firmware officiel publié', noPublishedNote: 'Aucune mise à jour disponible pour le moment. Réessayez plus tard.',
+      repositoryReady: 'Firmware officiel disponible', repositoryNote: 'Cliquez sur Mettre a jour pour installer la version sélectionnée.',
       downgrade: 'Version antérieure sélectionnée', downgradeNote: 'Vous avez sélectionné une version antérieure.',
       same: 'Cette version est déjà installée', update: 'Mise à jour disponible',
       downgradeConfirm: 'Vous allez installer une ancienne version du firmware. Continuer ?'
     },
     es: {
-      subtitle: 'Conecta tu ClearVoice. El firmware oficial más reciente se selecciona automáticamente, pero también puedes elegir una versión anterior.',
+      subtitle: 'Conecta tu dispositivo y busca actualizaciones.',
       choose: 'Versión a instalar', latest: 'Última', installed: 'Instalada', older: 'Anterior', newer: 'Más reciente',
       target: 'Versión seleccionada', latestLabel: 'Última versión', selectHint: 'La última versión se selecciona por defecto. Las versiones oficiales anteriores siguen disponibles.',
-      noPublished: 'No hay firmware oficial publicado', noPublishedNote: 'Publica los archivos firmados *_PROD.znfw en la carpeta firmware de GitHub.',
-      repositoryReady: 'Firmware oficial disponible', repositoryNote: 'El firmware se lee directamente desde el repositorio oficial de ZeroNoise en GitHub.',
+      noPublished: 'No hay firmware oficial publicado', noPublishedNote: 'No hay actualizaciones disponibles ahora. Inténtalo mas tarde.',
+      repositoryReady: 'Firmware oficial disponible', repositoryNote: 'Pulsa Actualizar firmware para instalar la version seleccionada.',
       downgrade: 'Versión anterior seleccionada', downgradeNote: 'Has seleccionado una versión anterior del firmware.',
       same: 'Esta versión ya está instalada', update: 'Actualización disponible',
       downgradeConfirm: 'Vas a instalar una versión anterior del firmware. ¿Continuar?'

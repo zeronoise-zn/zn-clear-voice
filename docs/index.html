@@ -71,12 +71,7 @@
           </div>
         </div>
 
-        <dl class="device-facts">
-          <div><dt data-i18n="hardware">Hardware</dt><dd id="hardwareValue">—</dd></div>
-          <div><dt data-i18n="installed">Installed</dt><dd id="installedValue">—</dd></div>
-          <div><dt>MCU</dt><dd id="mcuValue">—</dd></div>
-          <div><dt data-i18n="serial">Serial number</dt><dd id="serialValue">—</dd></div>
-        </dl>
+
 
         <button id="connectButton" class="btn btn-connect">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v4m8-4v4M5 9h14v4a7 7 0 0 1-14 0V9Zm7 11v2"/></svg>
@@ -118,7 +113,6 @@
         <div id="releasePanel" class="release-panel">
           <div class="release-line">
             <span id="releaseBadge" class="release-badge neutral" data-i18n="checkingRepository">Checking repository…</span>
-            <span id="releaseSource" class="release-source">GitHub · zeronoise-zn/zn-clear-voice</span>
           </div>
           <p id="releaseNotes" class="release-notes" data-i18n="releaseWaiting">Connect a device to compare firmware versions.</p>
         </div>
@@ -130,8 +124,7 @@
           </div>
           <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
           <div class="progress-meta">
-            <span id="progressDetail" data-i18n="waitingForDevice">Waiting for device</span>
-            <span id="progressBytes">—</span>
+            <span id="progressHint">Connect your device to get started.</span>
           </div>
           <span id="transferStatus" class="sr-only">TRANSFER NOT STARTED</span>
           <span id="installationStatus" class="sr-only">UPDATE NOT CONFIRMED</span>
@@ -141,19 +134,35 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14"/></svg>
           <span data-i18n="updateFirmware">Update firmware</span>
         </button>
-        <p class="safety-copy">Do not disconnect USB or power while the update is running.</p>
-      </div>
-
-      <div class="bm83-auto-settings">
-        <label class="bm83-auto-choice"><input id="bm83AutoEnable" type="checkbox" checked /> HEADSET_BT: verifica e installazione automatica BM83 alla connessione</label>
+        <p id="safetyCopy" class="safety-copy">Do not disconnect USB or power while the update is running.</p>
       </div>
 
       <section id="bm83Panel" class="bm83-panel" hidden aria-labelledby="bm83Title">
-        <h2 id="bm83Title">BM83 · Firmware audio</h2>
-        <p>La verifica entra in TEST e interrompe temporaneamente Bluetooth/audio. Se il firmware e la configurazione coincidono, non riscrive la Flash. Le porte gia autorizzate si riconnettono automaticamente.</p>
+        <div class="audio-heading"><h2 id="bm83Title">Firmware audio</h2><span id="bm83FriendlyVersion" class="audio-version"></span></div>
+        <p>Il firmware audio viene controllato e aggiornato automaticamente. Durante l'operazione Bluetooth e audio sono temporaneamente sospesi.</p>
+        <p id="bm83FriendlyStatus" class="audio-status" role="status" aria-live="polite">Collega il dispositivo per verificare gli aggiornamenti audio.</p>
+        <progress id="bm83Progress" max="100" value="0" aria-label="Avanzamento aggiornamento audio"></progress>
+        <div class="audio-actions">
+          <button id="bm83AutoRun" class="btn btn-secondary" disabled>Verifica aggiornamenti audio</button>
+          <button id="bm83Cancel" class="btn btn-secondary" disabled>Interrompi</button>
+        </div>
+        <p class="audio-help">Mantieni il dispositivo alimentato e non scollegare USB durante l'aggiornamento.</p>
+      </section>
+
+      <details id="advancedPanel" class="support-inline">
+        <summary>Assistenza e opzioni avanzate</summary>
+        <div class="advanced-content">
+          <p>Strumenti per assistenza tecnica e caricamento manuale.</p>
+          <label class="bm83-auto-choice"><input id="bm83AutoEnable" type="checkbox" checked /> Aggiorna automaticamente il firmware audio alla connessione</label>
+        <dl class="device-facts">
+          <div><dt data-i18n="hardware">Hardware</dt><dd id="hardwareValue">—</dd></div>
+          <div><dt data-i18n="installed">Installed</dt><dd id="installedValue">—</dd></div>
+          <div><dt>MCU</dt><dd id="mcuValue">—</dd></div>
+          <div><dt data-i18n="serial">Serial number</dt><dd id="serialValue">—</dd></div>
+        </dl>
+          <div id="bm83AdvancedControls" hidden>
         <p id="bm83Online">Riferimento web: in attesa della connessione.</p>
         <p id="bm83Installed">Firmware BM83 installato: da verificare.</p>
-        <button id="bm83AutoRun" class="btn btn-secondary" disabled>Verifica e aggiorna dal web</button>
         <p>Funzione in collaudo: il collegamento UART è verificato, il ciclo completo di programmazione BM83 resta da validare.</p>
         <p>Caricamento tramite USB → STM32 → UART. Mantieni il BM83 alimentato, interrompi chiamate e riproduzione.</p>
         <p>Seleziona un file <strong>Rehex BM83 Full Image for general DFU</strong> generato con isUpdate. La programmazione TEST confronta i settori interessati e verifica i dati riletti, conservando la calibrazione. I file OTA cifrati non sono supportati.</p>
@@ -168,10 +177,8 @@
           <button id="bm83Probe" class="btn btn-secondary" disabled>Verifica collegamento BM83</button>
           <button id="bm83Reset" class="btn btn-secondary" disabled>Riavvia BM83</button>
           <button id="bm83Update" class="btn btn-secondary" disabled>Carica firmware BM83</button>
-          <button id="bm83Cancel" class="btn btn-secondary" disabled>Interrompi caricamento</button>
           <button id="bm83BackupDownload" class="btn btn-secondary">Scarica backup precedente</button>
         </div>
-        <progress id="bm83Progress" max="100" value="0" aria-label="Avanzamento BM83"></progress>
         <p id="bm83Status" role="status">Installa sullo STM32 il firmware con supporto BM83, poi seleziona il file audio.</p>
         <p id="bm83Rate">Programmazione TEST: UART 921.600 baud.</p>
         <div class="support-actions">
@@ -185,15 +192,14 @@
           <button id="bm83FastProbe" class="btn btn-secondary" disabled>Verifica UART veloce</button>
         </div>
         <p>TEST e RESET vengono rilasciati alla fine della sessione (STM32 1.0.10 o successivo). Se il caricamento si interrompe, ripeti la programmazione per recuperare un'immagine incompleta. Il caricamento non crea backup; restano scaricabili quelli salvati in precedenza. Il pulsante di verifica UART esegue solo letture.</p>
-        <details id="bm83LogPanel" open>
+        <details id="bm83LogPanel">
           <summary>Log collaudo BM83</summary>
           <pre id="bm83Log" aria-label="Log collaudo BM83">Pronto. Nessun trasferimento avviato.</pre>
           <button id="bm83DownloadLog" class="btn btn-secondary">Scarica log BM83</button>
         </details>
-      </section>
 
-      <details class="support-inline">
-        <summary>Support &amp; diagnostics</summary>
+          </div>
+        </div>
         <div class="support-grid">
           <div class="support-actions">
             <button id="diagnosticsButton" class="btn btn-secondary" disabled>Read diagnostics</button>
@@ -201,6 +207,9 @@
             <button id="restartButton" class="btn btn-secondary" disabled>Restart device</button>
           </div>
           <div class="support-log">
+            <p id="releaseSource">GitHub - zeronoise-zn/zn-clear-voice</p>
+            <p id="progressDetail" data-i18n="waitingForDevice">Waiting for device</p>
+            <p id="progressBytes"></p>
             <pre id="technicalLog">Updater initialized.</pre>
             <button id="downloadLogButton" class="btn btn-secondary">Download log</button>
             <pre id="diagnosticInfo">No device diagnostics read.</pre>
