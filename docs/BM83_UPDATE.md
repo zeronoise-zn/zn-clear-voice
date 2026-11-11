@@ -375,15 +375,21 @@ in background e ClearVoice non attiva questa procedura.
 Prima di aprire TEST si verificano prodotto, hardware, formato, percorso
 immagine, SHA-256 e versioni del catalogo. La verifica interrompe Bluetooth
 e audio, entra in TEST a 921600 baud, legge header e versione MCU dalla Flash
-e confronta tutti i settori HEADER/MCU/DSP/CONFIG previsti dall'immagine.
+e identifica la release tramite versione MCU, versione DSP e contenuto CONFIG
+dichiarato. La versione MCU viene letta a 0x121FC e la DSP dal tag 0x92
+dell'header; HCI Read Local Version identifica la ROM, non la release audio.
 Non richiede UART APP: il modulo torna in Embedded Mode. Una versione MCU
 o DSP installata piu recente blocca l'aggiornamento automatico; la sostituzione
 intenzionale resta disponibile tramite caricamento manuale.
 
 Le sole versioni MCU/DSP non identificano la configurazione: anche una REV1
-con gli stessi numeri viene aggiornata se CONFIG differisce. Se tutti i byte
-immutabili coincidono, lo stato BM83_UP_TO_DATE rilascia la sessione senza
-cancellazioni, scritture o modifiche BPR. I dati RUNTIME 4000-5FFF sono mutabili
+con gli stessi numeri viene aggiornata se CONFIG differisce. Se le versioni MCU/DSP e i dati CONFIG dichiarati coincidono, lo stato
+BM83_UP_TO_DATE rilascia subito la sessione senza cancellazioni, scritture,
+modifiche BPR o confronto completo delle banche MCU/DSP. CONFIG viene
+confrontato da 6001 per 2 byte di lunghezza piu il payload dichiarato: il
+marker a 6000, i riempimenti di settore e gli header alternativi non
+identificano una nuova release. Non si usa una cache del browser per
+decidere che una scheda e aggiornata. I dati RUNTIME 4000-5FFF sono mutabili
 e non provocano aggiornamenti. RUNTIME viene cancellato solo quando viene
 realmente aggiornato CONFIG. Un header assente o incompleto permette la prima
 installazione/recupero, mantenendo gli 8 KiB di calibrazione gia presenti.
@@ -408,3 +414,22 @@ velocita UART, protocolli, caricamento HEX manuale e backup precedenti si trovan
 in Assistenza e opzioni avanzate, chiusa inizialmente. Anche il log BM83 resta
 chiuso. L'opzione automatica e modificabile nella stessa sezione prima della
 connessione. I log continuano a essere raccolti ed esportabili per assistenza.
+
+## Correzione riconnessione: identita release prima dei settori
+
+Il vecchio confronto di interi settori poteva innescare una nuova scrittura
+per differenze estranee alla versione. Ora il controllo rapido legge dal BM83
+le versioni effettive e la configurazione dichiarata e termina subito quando
+corrispondono al riferimento. `RELEASE_CHECK` registra il criterio e l'hash
+CONFIG; se occorre programmare, `SECTOR_DIFFERENCE` registra il primo byte
+differente per settore. I log restano nascosti in Assistenza.
+
+Il risultato rapido certifica versione/configurazione, non l'integrita completa
+del codice: `versionVerified=true`, `configurationVerified=true`,
+`readbackVerified=false`. L'integrita byte per byte resta verificata dopo ogni
+programmazione. La lettura richiede ancora l'ingresso TEST e il ritorno in
+Embedded, con temporanea interruzione audio; questo riavvio non e un flash.
+Se versioni o CONFIG differiscono, rimane il confronto settori e la scrittura
+con verifica, calibrazione conservata e blocco del downgrade automatico.
+Test di regressione e Chrome simulano riconnessione con marker, padding e
+runtime modificati e verificano assenza di cancellazioni e riscritture.

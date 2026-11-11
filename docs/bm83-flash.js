@@ -36,6 +36,27 @@ export async function readBm83FlashIdentity(flash) {
   return {validHeader,empty,mcu,dsp:validHeader?dsp:null};
 }
 
+// Release detection uses installed versions and the declared factory config,
+// not erase-sector padding, mutable runtime or a browser-side remembered hash.
+export async function matchBm83Release(flash,installed,plan) {
+  if(!installed.validHeader)return false;
+  const versioned=plan.images.filter(p=>p.version);
+  if(!versioned.length||versioned.some(p=>{
+    const actual=p.type===0?installed.mcu:p.type===1?installed.dsp:null;
+    return !actual||versionCompare(actual,p.version)!==0;
+  }))return false;
+  const config=plan.regions.find(r=>r.name==='CONFIG');
+  if(!config)return false; // No config identity: retain the full comparison.
+  const length=(config.bytes[1]<<8)|config.bytes[2];
+  if(length<1||length+3>config.bytes.length)return false;
+  // Offset 6000 is a storage marker. The 2-byte length and exactly the
+  // declared payload identify the release; the remaining sector is padding.
+  const expected=config.bytes.subarray(1,length+3);
+  const actual=await flash.read(config.start+1,expected.length);
+  installed.configSha256=await sha256(actual);
+  return equal(actual,expected);
+}
+
 export async function planBm83Flash(text,filename) {
   const image=await inspectBm83Image(text,filename),{data,present}=parseBm83Hex(text);
   const regions=[];
@@ -198,6 +219,7 @@ export class Bm83FlashUpdater {
       const batch=/\bSPI_BATCH=4096\b/.test(capabilities);
       log({kind:'TRANSFER_MODE',usbBlock:batch?4096:32,executor:batch?'STM32':'BROWSER'});
       flash=new Bm83SpiFlash(link,{sleep:this.sleep,check,bridge:batch?bridge:null});
+      const expectedVersions=Object.fromEntries(plan.images.filter(p=>p.version).map(p=>[p.name,p.version]));
       let installed=null;
       if(automatic) {
         installed=await readBm83FlashIdentity(flash);
@@ -206,6 +228,15 @@ export class Bm83FlashUpdater {
           const actual=part.type===0?installed.mcu:part.type===1?installed.dsp:null;
           if(installed.validHeader && actual && part.version && versionCompare(actual,part.version)>0)
             fail('BM83_NEWER_FIRMWARE','La Flash contiene una versione '+part.name+' piu recente: downgrade automatico bloccato.');
+        }
+        const matches=await matchBm83Release(flash,installed,plan);
+        log({kind:'RELEASE_CHECK',method:'INSTALLED_MCU_DSP_AND_DECLARED_CONFIG',matches,
+          mcu:installed.mcu,dsp:installed.dsp,configSha256:installed.configSha256||null,referenceSha256:plan.sha256});
+        if(matches) {
+          check();await bridge.close();
+          this.notify({state:'BM83_UP_TO_DATE',versionVerified:true,configurationVerified:true,readbackVerified:false,
+            expectedVersions,sha256:plan.sha256,elapsedMs:Date.now()-started});
+          return {state:'UP_TO_DATE',installed,expectedVersions};
         }
       }
       // Retain only calibration in RAM; no full dump or persistent backup.
@@ -220,10 +251,13 @@ export class Bm83FlashUpdater {
       for(const region of compareRegions)for(let offset=0;offset<region.bytes.length;offset+=4096){
         const address=region.start+offset,bytes=region.bytes.slice(offset,offset+4096);
         const current=await flash.read(address,bytes.length);
-        if(!equal(current,bytes))sectors.push({address,bytes,name:region.name});
+        if(!equal(current,bytes)){
+          const first=current.findIndex((b,i)=>b!==bytes[i]);
+          log({kind:'SECTOR_DIFFERENCE',part:region.name,address,firstDifference:address+first,installed:current[first],expected:bytes[first]});
+          sectors.push({address,bytes,name:region.name});
+        }
         compared+=bytes.length;progress('BM83_COMPARING',compared,compareTotal,region.name);
       }
-      const expectedVersions=Object.fromEntries(plan.images.filter(p=>p.version).map(p=>[p.name,p.version]));
       if(automatic && !sectors.length) {
         check();await bridge.rpc('ZN_BM83_GUARD OFF','GUARD');guarded=false;
         await bridge.close();

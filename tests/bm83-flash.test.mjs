@@ -130,7 +130,7 @@ test('Cancellation during comparison releases session and stops before any write
 function automaticPlan(){
   const p=smallPlan(),header=new Uint8Array(4096).fill(255),body=new Uint8Array(12288).fill(255);
   header.set([0,0x80,4,0,0,0,6,0x81,4,0x23,0x45,0x4e,0x44]);body[0]=2;body.set([1,2,3,4],0x21fc);
-  const config=new Uint8Array(4096).fill(255);config[0]=0;config[8]=17;
+  const config=new Uint8Array(4096).fill(255);config[0]=0;config[1]=0;config[2]=16;config[8]=17;
   p.regions=[{name:'HEADER',start:0,bytes:header},{name:'MCU',start:0x10000,bytes:body},
     {name:'CONFIG',start:0x6000,bytes:config},{name:'RUNTIME',start:0x4000,bytes:new Uint8Array(8192).fill(255)}];
   return p;
@@ -155,4 +155,24 @@ test('Automatic comparison detects config revision with equal MCU version and bl
   await assert.rejects(s.updater.run(p,{automatic:true}),/BM83_NEWER_FIRMWARE/);
   assert(!s.operations.slice(start).some(o=>[2,0x20,0x42].includes(o.op)));
   assert(!s.bridge.opened);
+});
+
+test('Reconnect identifies installed MCU/config release despite storage marker, padding and runtime changes; no erase/unlock',async()=>{
+  const s=simulated(),p=automaticPlan();await s.updater.run(p,{automatic:true});
+  // These are outside the release identity, and used to trigger sector writes.
+  s.memory[0x6000]=1;s.memory[0x6fff]=0x21;s.memory[0x5000]=0x45;s.memory[0x0fff]=0x67;
+  const before=s.operations.length;
+  const result=await s.updater.run(p,{automatic:true});
+  assert.equal(result.state,'UP_TO_DATE');
+  const operations=s.operations.slice(before);
+  assert(!operations.some(o=>[2,6,0x20,0x42].includes(o.op)));
+  assert(!operations.includes('ZN_BM83_GUARD ON'));
+  assert(operations.filter(o=>o.op===3).length<24,'version check must not reread the complete MCU/DSP banks');
+  assert(s.events.some(e=>e.kind==='RELEASE_CHECK'&&e.matches));
+  assert.equal(s.events.at(-1).versionVerified,true);
+  assert.equal(s.events.at(-1).readbackVerified,false,'version detection must not claim full Flash integrity');
+  // Equal versions alone must never hide a different actual configuration.
+  s.memory[0x6008]^=1;
+  const next=s.operations.length;await s.updater.run(p,{automatic:true});
+  assert(s.operations.slice(next).some(o=>o.op===0x20&&o.address===0x6000));
 });
