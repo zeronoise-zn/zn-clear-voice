@@ -1,9 +1,11 @@
 import { inspectPackage, UpdateError } from './znfw.js';
 import { SerialTransport } from './serial-transport.js';
 import { FirmwareUpdater, diagnosticLine } from './fw-updater.js';
+import { profileByName } from './product-profiles.js';
 
 const PRODUCT_DISPLAY_NAMES = new Map([
-  ['ClearVoice', 'ClearVoice Portable Unit']
+  ['ClearVoice', 'ClearVoice Portable Unit'],
+  ['HEADSET_BT', 'HEADSET_BT']
 ]);
 
 export function startUi(translations, config) {
@@ -18,6 +20,17 @@ export function startUi(translations, config) {
   for (const [language, a] of Object.entries(localText)) Object.assign(translations[language], {
     localFirmware: a[0], confirmUpdate: a[1], advancedWarning: a[2], alreadyBootloader: a[3], subtitle: a[4],
     shaVerified: 'Authenticated .znfw', stepFlashSub: '.znfw transport', stepVerifySub: 'Bootloader SHA-256 / Ed25519'
+  });
+  // Shared copy covers both policies. Package details show the actual policy.
+  const sharedCopy = {
+    en:['Firmware (.znfw)','Select a .znfw package or compatible release.','Structure and SHA-256 checked. ClearVoice requires a signature; HEADSET_BT uses unsigned packages.'],
+    it:['Firmware (.znfw)','Seleziona un pacchetto .znfw o una release compatibile.','Struttura e SHA-256 controllati. ClearVoice richiede la firma; HEADSET_BT usa pacchetti senza firma.'],
+    de:['Firmware (.znfw)','Ein .znfw-Paket oder eine kompatible Version auswählen.','Struktur und SHA-256 geprüft. ClearVoice erfordert eine Signatur; HEADSET_BT verwendet unsignierte Pakete.'],
+    fr:['Firmware (.znfw)','Sélectionnez un paquet .znfw ou une version compatible.','Structure et SHA-256 vérifiés. ClearVoice exige une signature ; HEADSET_BT utilise des paquets non signés.'],
+    es:['Firmware (.znfw)','Selecciona un paquete .znfw o una versión compatible.','Estructura y SHA-256 comprobados. ClearVoice requiere firma; HEADSET_BT usa paquetes sin firma.']
+  };
+  for (const [language, a] of Object.entries(sharedCopy)) Object.assign(translations[language], {
+    localFirmware:a[0],subtitle:a[1],advancedWarning:a[2],shaVerified:'.znfw / SHA-256',stepVerifySub:'SHA-256 / device policy'
   });
   let language = localStorage.getItem('zn-updater-lang') || navigator.language.slice(0,2);
   if (!translations[language]) language = 'en';
@@ -66,6 +79,7 @@ export function startUi(translations, config) {
   }
   function renderInfo(info) {
     $('productValue').textContent = PRODUCT_DISPLAY_NAMES.get(info?.product) || info?.product || '—';
+    $('mcuValue').textContent = profileByName(info?.product)?.mcu || '—';
     $('hardwareValue').textContent = info?.hardware || '—';
     $('installedValue').textContent = $('currentVersionValue').textContent = info?.displayId || info?.version || (info?.mode === 'bootloader' ? 'Recovery' : '—');
     $('serialValue').textContent = 'Not reported';
@@ -129,7 +143,7 @@ export function startUi(translations, config) {
   function showPackage(value) {
     const out = $('packageInfo');
     if (!value) { out.textContent = 'No package selected.'; return; }
-    out.textContent = `${value.filename}\n${value.bytes.length} bytes · Firmware ${value.version}\nPackage SHA256: ${value.packageHash}\nPayload: ${value.imageSize} bytes · SHA256 OK\nProduct: ClearVoice · HW mask 0x${value.hardwareMask.toString(16)}${value.hardwareMask & 1 ? ' (REV01 compatible)' : ''}\nMinimum bootloader: ${value.minimumBootloader >>> 24}.${(value.minimumBootloader >>> 16) & 255}.${value.minimumBootloader & 65535}\nPackage: structure / hash VALID. Signature validation pending on device.`;
+    out.textContent = `${value.filename}\n${value.bytes.length} bytes · Firmware ${value.version}\nPackage SHA256: ${value.packageHash}\nPayload: ${value.imageSize} bytes · SHA256 OK\nProduct: ${value.productName} · HW mask 0x${value.hardwareMask.toString(16)}${value.hardwareMask & 1 ? ' (REV01 compatible)' : ''}\nMinimum bootloader: ${value.minimumBootloader >>> 24}.${(value.minimumBootloader >>> 16) & 255}.${value.minimumBootloader & 65535}\nPackage: structure / hash VALID. ${value.signatureRequired ? 'Signature validation pending on device.' : 'HEADSET_BT unsigned package; SHA-256 checked.'}`;
     out.textContent += value.identity ? `\nCompiled identity: ${value.identity.buildId}\nGit: ${value.identity.git}` : '\nCompiled identity UNKNOWN: current ABI not uniquely recognized; update disabled.';
     $('latestVersionValue').textContent = value.version;
   }
@@ -152,8 +166,8 @@ export function startUi(translations, config) {
       if (!r.ok) throw new Error(`Manifest HTTP ${r.status}`);
       const data = await r.json();
       catalog = (data.targets || []).filter(x => x.format === 'znfw' && /\.znfw(?:$|[?#])/i.test(x.url || '') && /^[a-f0-9]{64}$/i.test(x.sha256 || ''));
-      $('releaseBadge').textContent = catalog.length ? t('repositoryReady') : 'Select a local signed .znfw';
-      $('releaseNotes').textContent = 'Only authenticated ClearVoice packages are supported.';
+      $('releaseBadge').textContent = catalog.length ? t('repositoryReady') : 'Select a local .znfw';
+      $('releaseNotes').textContent = 'Select a package for the detected product. ClearVoice requires a signature; HEADSET_BT uses SHA-256.';
       evaluateTarget();
     } catch (e) { log('Manifest unavailable', e.message); catalog = []; evaluateTarget(); }
     finally { clearTimeout(timer); manifestLoading = false; controls(); }
@@ -194,7 +208,7 @@ export function startUi(translations, config) {
     if (!io?.connected) { error(new UpdateError('SERIAL_NOT_CONNECTED')); return; }
     try {
       if (!pkg) {
-        if (!target) throw new UpdateError('INVALID_ZNFW', 'Select a signed package.');
+        if (!target) throw new UpdateError('INVALID_ZNFW', 'Select a .znfw package.');
         const release = target; selecting = true; controls();
         try {
           const r = await fetch(release.url, { cache: 'no-store' });

@@ -68,7 +68,12 @@ export class SerialTransport {
       await Promise.race([this.writer.write(bytes), new Promise((_, reject) => {
         timer = setTimeout(() => reject(new UpdateError('SERIAL_DISCONNECTED', 'Serial write stalled. Reconnect before retrying.')), 10000);
       })]);
-    } catch (e) { this.fail(e); throw e; }
+    } catch (e) {
+      // Web Serial may reject with a native DOMException while the MCU resets.
+      // Give the updater the stable transport error it uses to reopen the port.
+      const error = e instanceof UpdateError ? e : new UpdateError('SERIAL_DISCONNECTED', e.message);
+      this.fail(error); throw error;
+    }
     finally { clearTimeout(timer); }
   }
   async exchange(bytes, predicate, timeout) {

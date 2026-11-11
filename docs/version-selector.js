@@ -107,7 +107,7 @@
     const listing = await listingResponse.json();
     if (!Array.isArray(listing)) throw new Error('Unexpected GitHub firmware directory response');
 
-    const files = listing.filter(item => item?.type === 'file' && /_PROD\.znfw$/i.test(item.name || ''));
+    const files = listing.filter(item => item?.type === 'file' && /(?:_PROD|_USB)\.znfw$/i.test(item.name || ''));
     const loaded = await Promise.all(files.map(async item => {
       const version = versionFromFilename(item.name);
       if (!version) return null;
@@ -115,8 +115,16 @@
       const response = await nativeFetch(`${url}?v=${encodeURIComponent(item.sha || now)}`, { cache: 'no-store' });
       if (!response.ok) throw new Error(`${item.name}: HTTP ${response.status}`);
       const bytes = await response.arrayBuffer();
+      // Inspect the product/HW/version fields, rather than assigning
+      // every file to ClearVoice or trusting its filename as identity.
+      const { inspectPackage } = await import('./znfw.js');
+      const pkg = await inspectPackage(bytes, item.name);
+      if (pkg.signatureRequired ? !/_PROD\.znfw$/i.test(item.name) : !/^HEADSET_BT_.*_USB\.znfw$/i.test(item.name))
+        throw new Error(`${item.name}: package policy does not match catalog filename`);
       return {
-        product: 'ClearVoice', hardware: '*', version, format: 'znfw', url,
+        product: pkg.productName, hardware: Array.from({length:32},(_,i)=>i)
+          .filter(i => pkg.hardwareMask & (1 << i)).map(i=>`REV${String(i+1).padStart(2,'0')}`),
+        version: pkg.version, format: 'znfw', url,
         sha256: await sha256(bytes), filename: item.name, githubBlob: item.sha || ''
       };
     }));

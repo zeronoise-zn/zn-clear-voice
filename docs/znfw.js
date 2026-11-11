@@ -1,4 +1,5 @@
 // ZNFW128 v1: ClearvoicePUSTM32/Bootloader/Inc/zn_product.h, docs/bootloader/ZNFW_FORMAT.md.
+import { profileById, PRODUCT_PROFILES } from './product-profiles.js';
 export const PRODUCT = 0x48575643;
 export const HEADER_SIZE = 128;
 export const MAX_IMAGE = 0x37800;
@@ -23,11 +24,11 @@ export function versionForms(value) {
 // Current ClearVoice ARM32 clearvoice_identity_t ABI, not a ZNFW header extension.
 // Require one fully coherent object and bounded in-image string pointers. Unknown
 // or ambiguous future ABIs must never fall back to a filename/version-only match.
-export function compiledIdentity(payload, headerVersion, packageMask) {
+export function compiledIdentity(payload, headerVersion, packageMask, profile = PRODUCT_PROFILES[0]) {
   const forms = versionForms(headerVersion);
   if (!forms) return null;
   const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
-  const base = 0x08008000, matches = [];
+  const base = profile.base, matches = [];
   function stringAt(pointer, limit) {
     const start = pointer - base;
     if (start < 0 || start >= payload.length) return null;
@@ -58,28 +59,32 @@ export async function inspectPackage(buffer, filename) {
   if (hex(bytes.subarray(0, 4)) !== '5a4e4657' || v.getUint16(4, true) !== 1 || v.getUint16(6, true) !== HEADER_SIZE)
     throw new UpdateError('INVALID_HEADER', 'Expected ZNFW128 version 1.');
   const product = v.getUint32(8, true), hardwareMask = v.getUint32(12, true);
+  const profile = profileById(product);
   const imageSize = v.getUint32(24, true), minimumBootloader = v.getUint32(28, true);
-  if (product !== PRODUCT || !hardwareMask || imageSize < 472 || imageSize > MAX_IMAGE)
+  if (!profile || !hardwareMask || imageSize < profile.vectorWords * 4 || imageSize > profile.maxImage)
     throw new UpdateError('INVALID_HEADER', 'Product, hardware mask or image bounds.');
-  if (bytes.length !== HEADER_SIZE + imageSize) throw new UpdateError('INVALID_ZNFW', 'Package length does not match signed image length.');
+  if (bytes.length !== HEADER_SIZE + imageSize) throw new UpdateError('INVALID_ZNFW', 'Package length does not match image length.');
   const header = bytes.subarray(0, HEADER_SIZE), payload = bytes.subarray(HEADER_SIZE);
   // Cheap unsigned-placeholder rejection is NOT a signature verification.
-  if (header.subarray(64).every(b => b === 0) || header.subarray(64).every(b => b === 255))
+  if (profile.signatureRequired && (header.subarray(64).every(b => b === 0) || header.subarray(64).every(b => b === 255)))
     throw new UpdateError('INVALID_HEADER', 'Missing signature. A signed production package is required.');
+  if (!profile.signatureRequired && header.subarray(64).some(b => b !== 0))
+    throw new UpdateError('INVALID_HEADER', 'HEADSET_BT requires zero reserved header bytes.');
   const payloadHash = await sha256(payload);
   if (payloadHash !== hex(header.subarray(32, 64))) throw new UpdateError('PAYLOAD_HASH_MISMATCH');
   const vectors = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
   const msp = vectors.getUint32(0, true);
-  if (msp <= 0x20000000 || msp > 0x20020000 || msp % 8 || !vectors.getUint32(4, true))
+  if (msp <= 0x20000000 || msp > profile.ramEnd || msp % 8 || !vectors.getUint32(4, true))
     throw new UpdateError('INVALID_HEADER', 'Invalid application vectors.');
-  for (let i = 1; i < 118; i++) {
+  for (let i = 1; i < profile.vectorWords; i++) {
     const entry = vectors.getUint32(i * 4, true), address = entry & ~1;
-    if (entry && (!(entry & 1) || address < 0x08008000 || address >= 0x08008000 + imageSize))
+    if (entry && (!(entry & 1) || address < profile.base || address >= profile.base + imageSize))
       throw new UpdateError('INVALID_HEADER', `Invalid vector ${i}.`);
   }
   const headerVersion = [16, 18, 20, 22].map(n => v.getUint16(n, true)).join('.');
-  const identity = compiledIdentity(payload, headerVersion, hardwareMask);
+  const identity = compiledIdentity(payload, headerVersion, hardwareMask, profile);
   return { bytes, header, payload, product, hardwareMask, imageSize, minimumBootloader,
+    productName: profile.name, profile, signatureRequired:profile.signatureRequired,
     version: identity?.version || headerVersion, headerVersion, identity,
     filename, payloadHash, packageHash: await sha256(bytes), signatureVerified: false };
 }

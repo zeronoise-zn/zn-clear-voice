@@ -331,3 +331,30 @@ releases ownership; never open both tools on the same COM concurrently.
 No real serial/HW operation was executed by WEB-01.
 WEB-02 performed only the separately requested read-only recovery queries;
 no update or reboot was executed. The next installation is still NOT_RUN.
+
+
+## HEADSET_BT: STM32C071G8U6, 64 KiB, unsigned packages
+
+The connected MCU is G8U6 (64 KiB Flash / 24 KiB RAM), confirmed by the user
+and the hardware GET_INFO response. The original schematic's GBU6/128 KiB
+configuration is superseded for HEADSET_BT.
+
+BTWH uses the same framing, commands and 128-byte package layout. It has no
+signature/key requirement: header bytes 64..127 must be zero. SHA-256 checks
+image integrity; product/HW, size, boot minimum and vector checks remain.
+ClearVoice CVWH retains its production-key and Ed25519 requirements unchanged.
+
+Bootloader 1.1 occupies 0x08000000..0x08004FFF (20 KiB). Application is linked
+at 0x08005000, maximum 0xA800 bytes (42 KiB). Metadata is 0x0800F800..FFFF.
+RAM ends at 0x20005FE0 with the final 32 bytes retained for boot context.
+There are 48 vector words and one image, with three persisted boot trials.
+
+GET_INFO remains format 2 / 209 bytes. No-key flag bit4 is set. Capabilities
+include bit29 UNSIGNED_UPDATE and bit30 FLASH_MUTATION, while authenticated
+bit31 is clear. The client requires this explicit combination for BTWH and
+requires physical Flash size 64 KiB. Older diagnostic/128 KiB bootloaders
+cannot install this image and must be reprogrammed once through ST ROM DFU/SWD.
+
+Catalog names: `HEADSET_BT_<version>_USB.znfw`. ClearVoice retains `_PROD.znfw`.
+END success, exact post-reset identity and confirmed runtime are still required
+before COMPLETE. The unchanged physical USB serial permits reconnection.

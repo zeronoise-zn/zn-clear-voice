@@ -1,5 +1,6 @@
 // Wire source: zn_update_protocol.h/.c and UPDATE_PROTOCOL.md at STM32 HEAD 11a737c93613.
-import { UpdateError, PRODUCT } from './znfw.js';
+import { UpdateError } from './znfw.js';
+import { profileById, profileByName, profileByFamily } from './product-profiles.js';
 export const CMD = Object.freeze({ HELLO: 1, INFO: 2, BEGIN: 3, DATA: 4, END: 5, STATUS: 6, ABORT: 7, REBOOT: 8 });
 export const CHUNK = 1024, MAX_WIRE = 1044;
 export const ERRORS = ['OK','VERSION','COMMAND','LENGTH','CRC','COBS','STATE','SEQUENCE','OFFSET','SIZE','PRODUCT','HARDWARE','MIN_VERSION','FLASH','HASH','SIGNATURE','VECTOR','METADATA','TARGET','PENDING','TIMEOUT','SEQUENCE_CONFLICT','INTERNAL','FRAME_TOO_LARGE','UPDATE_ENGINE_NOT_AVAILABLE','GEOMETRY','UART_RX','UART_TX_TIMEOUT'];
@@ -56,18 +57,20 @@ export function* chunks(payload) {
 }
 export function parseHello(r) {
   const p = r.payload, v = new DataView(p.buffer, p.byteOffset, p.byteLength);
-  if (p.length !== 26 || new TextDecoder().decode(p.subarray(8,16)) !== 'ZNBLCVWH' || p[16] !== 1 || p[17] !== 0 ||
+  const family = new TextDecoder().decode(p.subarray(12,16));
+  if (p.length !== 26 || new TextDecoder().decode(p.subarray(8,12)) !== 'ZNBL' || !profileByFamily(family) || p[16] !== 1 || p[17] !== 0 ||
       v.getUint16(18,true) !== CHUNK || v.getUint16(20,true) !== 1028 || v.getUint16(22,true) !== 1038 || v.getUint16(24,true) !== MAX_WIRE)
     throw new UpdateError('PROTOCOL_MISMATCH', 'Not the supported ClearVoice bootloader.');
-  return r;
+  return { ...r, family };
 }
 export function parseBootInfo(r) {
   const p = r.payload, v = new DataView(p.buffer, p.byteOffset, p.byteLength);
-  if (p.length !== 209 || p[8] !== 2 || p[9] !== 1 || v.getUint32(40,true) !== PRODUCT || p[18] > 64 || p[19] > 94)
+  const profile = p.length >= 44 ? profileById(v.getUint32(40,true)) : null;
+  if (p.length !== 209 || p[8] !== 2 || p[9] !== 1 || !profile || p[18] > 64 || p[19] > 94)
     throw new UpdateError('PROTOCOL_MISMATCH', 'GET_INFO format 2 required.');
   return { hardwareMask: v.getUint32(12,true), hardware: `REV${String(p[10]).padStart(2,'0')}`,
     flags: p[11], flashKb: v.getUint16(16,true), capacity: v.getUint32(28,true), capabilities: v.getUint32(36,true),
-    minimumBootloader: v.getUint32(203,true), product: 'ClearVoice', mode: 'bootloader',
+    minimumBootloader: v.getUint32(203,true), product: profile.name, family: profile.family, mcu:profile.mcu, mode: 'bootloader',
     bootBuildId: new TextDecoder().decode(p.subarray(108,108+p[19])),
     bootGit: new TextDecoder().decode(p.subarray(44,44+p[18])), activeSlot:p[207], targetSlot:p[208] };
 }
@@ -79,9 +82,14 @@ export function parseStatus(r) {
     activeSlot:p[12], targetSlot:p[13] };
 }
 export function checkTarget(pkg, info) {
-  if (!(info.flags & 8) || (info.flags & 20) || (info.capabilities & 0xc0000000) >>> 0 !== 0xc0000000)
+  const profile = profileByName(info.product);
+  if (!profile || pkg.product !== profile.id) throw new UpdateError('TARGET_MISMATCH', 'Product');
+  if (profile.signatureRequired && (!(info.flags & 8) || (info.flags & 20) || (info.capabilities & 0xc0000000) >>> 0 !== 0xc0000000))
     throw new UpdateError('PROD_REQUIRED', 'Device must have the provisioned production bootloader.');
+  if (!profile.signatureRequired && (!(info.flags & 16) || (info.flags & 12) ||
+      (info.capabilities & 0xe0000000) >>> 0 !== 0x60000000))
+    throw new UpdateError('UPDATE_POLICY_MISMATCH', 'HEADSET_BT unsigned-update bootloader required.');
   if (!(pkg.hardwareMask & info.hardwareMask)) throw new UpdateError('TARGET_MISMATCH', 'Hardware mask');
   if (pkg.minimumBootloader > info.minimumBootloader) throw new UpdateError('TARGET_MISMATCH', 'Minimum bootloader');
-  if (pkg.imageSize > info.capacity || ![256,512].includes(info.flashKb)) throw new UpdateError('TARGET_MISMATCH', 'Flash capacity');
+  if (pkg.imageSize > info.capacity || pkg.imageSize > profile.maxImage || !profile.flashKb.includes(info.flashKb)) throw new UpdateError('TARGET_MISMATCH', 'Flash capacity');
 }

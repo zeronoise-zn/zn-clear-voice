@@ -1,12 +1,13 @@
 import { UpdateError } from './znfw.js';
 import { CMD, chunks, parseHello, parseBootInfo, parseStatus, checkTarget } from './zn-protocol.js';
+import { profileByName } from './product-profiles.js';
 
 export const BUSY = new Set(['CONNECTING','ENTERING_BOOTLOADER','WAITING_BOOTLOADER','BEGIN_UPDATE','SENDING','TRANSFER_COMPLETE','VERIFYING','FINALIZING','WAITING_FOR_APPLICATION','VERIFYING_INSTALLED_VERSION','WAITING_BOOT_CONFIRM','DIAGNOSING','ABORTING']);
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 export function appInfo(line) {
   try {
     const o = JSON.parse(line);
-    if (o.product !== 'ClearVoice' || !/^REV\d\d$/.test(o.hardware) || !/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(o.firmware) ||
+    if (!profileByName(o.product) || !/^REV\d\d$/.test(o.hardware) || !/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(o.firmware) ||
         !/^[a-f0-9]{40,64}$/i.test(o.git) || ![0,1].includes(o.dirty) || ![0,1].includes(o.shallow)) return null;
     return { ...o, version: o.firmware, mode: 'application',
       displayId: `${o.firmware}-${o.git.slice(0,12)}${o.dirty ? '-dirty' : ''}` };
@@ -32,6 +33,7 @@ export function diagnosticLine(line) {
 export function matchInstalled(pkg, info) {
   const id = pkg.identity;
   if (!id) throw new UpdateError('PACKAGE_IDENTITY_UNKNOWN', 'Current compiled identity ABI was not uniquely recognized.');
+  if (pkg.product !== profileByName(info.product)?.id) throw new UpdateError('INSTALLED_IDENTITY_MISMATCH', 'Product');
   if (info.version !== id.version || info.git !== id.git || info.hardware !== id.hardware || info.dirty !== id.dirty || info.shallow !== id.shallow)
     throw new UpdateError('INSTALLED_IDENTITY_MISMATCH', `Device ${info.displayId}; expected ${id.buildId}. Possible fallback/rollback.`);
 }
@@ -52,8 +54,9 @@ export class FirmwareUpdater {
     return runtimeInfo(await this.io.text('\nZN_STATS?\n', line => !!runtimeInfo(line), 2500));
   }
   async bootInfo() {
-    parseHello(await this.io.hello());
+    const hello = parseHello(await this.io.hello());
     this.info = parseBootInfo(await this.io.request(CMD.INFO));
+    if (hello.family !== this.info.family) throw new UpdateError('PROTOCOL_MISMATCH', 'HELLO/GET_INFO product mismatch.');
     const status = parseStatus(await this.io.request(CMD.STATUS));
     this.bootState = status.state;
     this.diagnostics = {info:this.info, status:{state:status.state,lastError:status.lastError,offset:status.offset,

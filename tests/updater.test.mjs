@@ -125,6 +125,15 @@ test('Serial single reader, fragmented/coalesced ACK, old duplicates and exact t
   assert.equal(port.options.parity,'none'); assert.equal(port.options.baudRate,230400);
   await io.close(); assert.equal(io.pending,null);
 });
+test('Native Web Serial write failures during MCU reset allow reconnect', async () => {
+  const port = new FakePort(() => { throw new DOMException('Port closed during MCU reset','NetworkError'); });
+  const io = new SerialTransport(port); await io.open();
+  await assert.rejects(io.request(CMD.INFO,undefined,{timeout:50,retries:0}),error=>error.code==='SERIAL_DISCONNECTED');
+  assert.equal(io.connected,false);
+  assert.equal(io.pending,null);
+  await io.close();
+});
+
 test('Serial NACK mapping/consumed LENGTH, bounded timeout, disconnect and LF query', async () => {
   let status = 3;
   const port = new FakePort((bytes,p) => {
