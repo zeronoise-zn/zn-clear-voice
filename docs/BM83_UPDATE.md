@@ -41,13 +41,14 @@ CONFIG a 32 byte e stato programmato e verificato sul dispositivo reale.
 Il baud nominale non e il throughput utile: backup, ACK, cancellazioni e
 riletture contribuiscono al tempo totale.
 
-`ZN_BM83_GUARD ON` viene attivato prima del backup. Finche lo STM32 rimane
-alimentato, un errore, l'interruzione, la chiusura della porta o la lease scaduta
-tengono RST_N BM83 LOW con Q1 spento e P3_4 flottante. Q1 e attivo solo durante
-una sessione TEST; viene spento prima di rilasciare il reset normale.
-Le sessioni APP e ZN_BOOT sono bloccate in HOLD;
-una nuova sessione TEST permette il recupero. Solo dopo verifica completa il
-client invia `ZN_BM83_GUARD OFF` e chiude TEST per avviare l'applicazione.
+`ZN_BM83_GUARD ON/OFF` resta compatibile come stato della sessione TEST.
+Dallo STM32 1.0.10 non mantiene il modulo in reset dopo la sessione:
+CLOSE, disconnessione, timeout ed errore rilasciano TEST e RESET, con Q1/Q2
+spenti. PA5/PA6 LOW lasciano flottanti i pin BM83 tramite i transistor.
+RESET viene azionato solo per l'impulso esplicito o il cambio TEST/Embedded.
+INFO espone HOLD=0; fuori sessione GUARD=0. La sola ricarica USB non aziona
+il reset e non impedisce l'uso audio. Un'immagine interrotta puo richiedere
+un nuovo caricamento TEST; il backup resta disponibile nel browser.
 La diagnostica UART applicativa resta opzionale e separata dal caricamento;
 `ZN_BM83_APP_BAUD` modifica solo il baud dello STM32, senza scrivere parametri
 nel BM83. I fault di ricezione fuori sessione vengono puliti e non compromettono
@@ -269,7 +270,7 @@ lo fa esplicitamente e richiede una nuova risposta UART.
 
 MCU DFU 0x49 e TEST/ROM usano protocolli diversi. Con guard disattivato,
 CLOSE TEST, perdita DTR o 30 s senza comandi rilasciano TEST e applicano reset.
-Con guard attivo il bridge v3 tiene RESET BM83 LOW e TEST flottante per il recupero.
+Dallo STM32 1.0.10 il bridge rilascia RESET e TEST fuori sessione, anche con guard attivo.
 Queste condizioni richiedono STM32 alimentato; RTS/CTS, MFB e alimentazione
 BM83 non sono comandabili.
 

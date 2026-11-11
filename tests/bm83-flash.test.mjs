@@ -28,7 +28,7 @@ function simulated({corrupt=false,unsupported=false,bridgeVersion=3}={}) {
   const original=Uint8Array.from([0x55,0x55,255,255,255,255]);let bpr=original.slice(),status=0,saved=false,guard=false,held=false;
   const operations=[],events=[];
   const bridge={opened:false,info:{bm83_bridge:bridgeVersion},async open(mode){operations.push('OPEN '+mode);this.opened=true;},
-    async close(){if(!this.opened)return;operations.push('CLOSE');held=guard;this.opened=false;},
+    async close(){if(!this.opened)return;operations.push('CLOSE');held=false;guard=false;this.opened=false;},
     async rpc(cmd){operations.push(cmd);if(cmd==='ZN_BM83_GUARD ON')guard=true;if(cmd==='ZN_BM83_GUARD OFF')guard=false;return '[BM83] OK';},
     async readVersion(){return [1,2,3,4];}};
   const link={flashId:unsupported?'000000':'bf2641',rom:'rom',async command(opcode,p){
@@ -76,22 +76,22 @@ test('Actual SPI updater saves full backup before mutation, verifies readback, c
   assert(!s.operations.includes('OPEN APP'));
 });
 
-test('Wrong bridge/Flash or failed persistent backup never erases; failed verification keeps reset guard',async()=>{
+test('Wrong bridge/Flash or failed persistent backup never erases; failed verification never commits and always closes',async()=>{
   for(const setup of [{unsupported:true},{bridgeVersion:2},{backup:true},{corrupt:true}]){
     const s=simulated(setup);
     if(setup.backup)s.updater.saveBackup=async()=>({stored:false});
     await assert.rejects(s.updater.run(smallPlan()),/BM83_/);
     if(!setup.corrupt)assert(!s.operations.some(x=>x.op===0x20));
-    else {assert(s.held);assert(!s.operations.includes('ZN_BM83_GUARD OFF'));}
+    else {assert(!s.held);assert(!s.operations.includes('ZN_BM83_GUARD OFF'));}
     assert(!s.events.some(e=>e.state==='BM83_COMPLETE'));assert.equal(s.updater.busy,false);
   }
 });
 
-test('Cancellation after backup holds reset and stops before any write; mismatched SPI reply is fatal',async()=>{
+test('Cancellation after backup releases session and stops before any write; mismatched SPI reply is fatal',async()=>{
   const s=simulated(),save=s.updater.saveBackup;
   s.updater.saveBackup=async(...args)=>{const r=await save(...args);s.updater.cancel();return r;};
   await assert.rejects(s.updater.run(smallPlan()),/BM83_CANCELLED/);
-  assert(!s.operations.some(x=>x.op===0x20));assert(s.held);
+  assert(!s.operations.some(x=>x.op===0x20));assert(!s.held);
   const f=new Bm83SpiFlash({async command(){return Uint8Array.of(5,1,0);}});
   await assert.rejects(f.read(0,16),/BM83_SPI/);
   await assert.rejects(f.sector(0x2000,new Uint8Array(4096)),/non consentito/);

@@ -149,7 +149,7 @@ export class Bm83FlashUpdater {
       if(link.flashId!=='bf2641')fail('BM83_FLASH_UNSUPPORTED','Flash non supportata: '+link.flashId+'. Nessuna cancellazione eseguita.');
       detailed=false;context={phase:'BACKUP'};
       flash=new Bm83SpiFlash(link,{sleep:this.sleep,check});
-      // Fail closed even during backup if recovering a previous partial write.
+      // Mark the programming session before backup, including recovery.
       await bridge.rpc('ZN_BM83_GUARD ON','GUARD');guarded=true;
       const backup=await flash.read(0,FLASH_SIZE,(n,total)=>progress('BM83_BACKUP',n,total,'BACKUP'));
       const calibration=backup.slice(0x2000,0x4000);
@@ -197,8 +197,8 @@ export class Bm83FlashUpdater {
       log({kind:'EMBEDDED_RELEASED',testPin:'FLOATING',q1:'OFF',runtimeVerified:false,expectedVersions});
       this.notify({state:'BM83_COMPLETE',protocol:'TEST_HCI_SPI',baud,applicationMode:'EMBEDDED',readbackVerified:true,calibrationPreserved:true,runtimeVerified:false,expectedVersions,elapsedMs:Date.now()-started});
     } catch(error) {
-      // Do not clear guard after any failure, including failed readback or
-      // backup persistence. Reconnecting TEST remains possible for recovery.
+      // Never claim commit after a failed readback/backup. CLOSE releases
+      // TEST and RESET on STM32 1.0.10+; an incomplete image needs TEST recovery.
       this.notify({state:committed?'BM83_REBOOT_UNVERIFIED':'BM83_FAILED',error,guarded,...context,elapsedMs:Date.now()-started});
       if(bridge.opened)try{log({kind:'BRIDGE_SNAPSHOT',reply:await bridge.rpc('ZN_BM83_INFO?','BRIDGE')});}catch{}
       throw error;
