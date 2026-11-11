@@ -1,3 +1,7 @@
+/**
+ * Solo disposizione dei blocchi visivi dopo il caricamento dinamico del
+ * selettore versioni. Non legge la porta USB e non decide alcun aggiornamento.
+ */
 (() => {
   'use strict';
 

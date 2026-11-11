@@ -1,10 +1,21 @@
+/**
+ * Selettore delle release STM32 e adattatore del catalogo GitHub. Il download
+ * controlla il prodotto del pacchetto, non assegna tutto a ClearVoice in base
+ * al nome file. window.fetch e intercettata solo per il manifest firmware;
+ * il segnale di annullamento deve arrivare anche alle fetch interne. I flag
+ * window.__ZN_* sincronizzano la UI e non sono prove di installazione.
+ */
 (() => {
   'use strict';
 
   const STORAGE_KEY = 'zn-updater-fw-version';
   const MANIFEST_NAME = 'firmware-manifest.json';
-  const REPOSITORY = document.querySelector('meta[name="zn-firmware-repository"]')?.content || 'zeronoise-zn/zn-clear-voice';
-  const BRANCH = document.querySelector('meta[name="zn-firmware-branch"]')?.content || 'feature/clearvoice-web-updater';
+  const REPOSITORY =
+    document.querySelector('meta[name="zn-firmware-repository"]')?.content ||
+    'zeronoise-zn/zn-clear-voice';
+  const BRANCH =
+    document.querySelector('meta[name="zn-firmware-branch"]')?.content ||
+    'feature/clearvoice-web-updater';
   const FIRMWARE_DIR = 'docs/firmware';
   const API_URL = `https://api.github.com/repos/${REPOSITORY}/contents/${FIRMWARE_DIR}?ref=${encodeURIComponent(BRANCH)}`;
   const nativeFetch = window.fetch.bind(window);
@@ -17,65 +28,129 @@
   const TEXT = {
     en: {
       subtitle: 'Connect your device and check for updates.',
-      choose: 'Firmware version', latest: 'Latest', installed: 'Installed', older: 'Previous', newer: 'Newer',
-      target: 'Selected version', latestLabel: 'Latest version', selectHint: 'Latest is selected by default. Previous official versions remain available.',
-      noPublished: 'No official firmware published yet', noPublishedNote: 'No update is available at the moment. Try again later.',
-      repositoryReady: 'Official firmware available', repositoryNote: 'Select Update firmware to install the selected version.',
-      downgrade: 'Previous version selected', downgradeNote: 'You selected an older firmware version.',
-      same: 'This version is already installed', update: 'Update available',
-      downgradeConfirm: 'You are about to install an older firmware version. Continue?'
+      choose: 'Firmware version',
+      latest: 'Latest',
+      installed: 'Installed',
+      older: 'Previous',
+      newer: 'Newer',
+      target: 'Selected version',
+      latestLabel: 'Latest version',
+      selectHint: 'Latest is selected by default. Previous official versions remain available.',
+      noPublished: 'No official firmware published yet',
+      noPublishedNote: 'No update is available at the moment. Try again later.',
+      repositoryReady: 'Official firmware available',
+      repositoryNote: 'Select Update firmware to install the selected version.',
+      downgrade: 'Previous version selected',
+      downgradeNote: 'You selected an older firmware version.',
+      same: 'This version is already installed',
+      update: 'Update available',
+      downgradeConfirm: 'You are about to install an older firmware version. Continue?',
     },
     it: {
       subtitle: 'Collega il dispositivo e verifica gli aggiornamenti.',
-      choose: 'Versione da installare', latest: 'Ultima', installed: 'Installata', older: 'Precedente', newer: 'Più recente',
-      target: 'Versione selezionata', latestLabel: 'Ultima versione', selectHint: 'Di default è selezionata l’ultima versione. Le versioni ufficiali precedenti restano disponibili.',
-      noPublished: 'Nessun firmware ufficiale pubblicato', noPublishedNote: 'Nessun aggiornamento disponibile al momento. Riprova più tardi.',
-      repositoryReady: 'Firmware ufficiali disponibili', repositoryNote: 'Premi Aggiorna firmware per installare la versione selezionata.',
-      downgrade: 'Versione precedente selezionata', downgradeNote: 'Hai selezionato una versione firmware precedente.',
-      same: 'Questa versione è già installata', update: 'Aggiornamento disponibile',
-      downgradeConfirm: 'Stai per installare una versione firmware precedente. Continuare?'
+      choose: 'Versione da installare',
+      latest: 'Ultima',
+      installed: 'Installata',
+      older: 'Precedente',
+      newer: 'Più recente',
+      target: 'Versione selezionata',
+      latestLabel: 'Ultima versione',
+      selectHint:
+        'Di default è selezionata l’ultima versione. Le versioni ufficiali precedenti restano disponibili.',
+      noPublished: 'Nessun firmware ufficiale pubblicato',
+      noPublishedNote: 'Nessun aggiornamento disponibile al momento. Riprova più tardi.',
+      repositoryReady: 'Firmware ufficiali disponibili',
+      repositoryNote: 'Premi Aggiorna firmware per installare la versione selezionata.',
+      downgrade: 'Versione precedente selezionata',
+      downgradeNote: 'Hai selezionato una versione firmware precedente.',
+      same: 'Questa versione è già installata',
+      update: 'Aggiornamento disponibile',
+      downgradeConfirm: 'Stai per installare una versione firmware precedente. Continuare?',
     },
     de: {
       subtitle: 'Verbinden Sie Ihr Gerät und suchen Sie nach Updates.',
-      choose: 'Firmware-Version', latest: 'Neueste', installed: 'Installiert', older: 'Älter', newer: 'Neuer',
-      target: 'Ausgewählte Version', latestLabel: 'Neueste Version', selectHint: 'Standardmäßig ist die neueste Version ausgewählt. Frühere offizielle Versionen bleiben verfügbar.',
-      noPublished: 'Noch keine offizielle Firmware veröffentlicht', noPublishedNote: 'Zurzeit ist kein Update verfügbar. Versuchen Sie es später erneut.',
-      repositoryReady: 'Offizielle Firmware verfügbar', repositoryNote: 'Wählen Sie Firmware aktualisieren, um die ausgewählte Version zu installieren.',
-      downgrade: 'Ältere Version ausgewählt', downgradeNote: 'Eine ältere Firmware-Version wurde ausgewählt.',
-      same: 'Diese Version ist bereits installiert', update: 'Update verfügbar',
-      downgradeConfirm: 'Sie installieren eine ältere Firmware-Version. Fortfahren?'
+      choose: 'Firmware-Version',
+      latest: 'Neueste',
+      installed: 'Installiert',
+      older: 'Älter',
+      newer: 'Neuer',
+      target: 'Ausgewählte Version',
+      latestLabel: 'Neueste Version',
+      selectHint:
+        'Standardmäßig ist die neueste Version ausgewählt. Frühere offizielle Versionen bleiben verfügbar.',
+      noPublished: 'Noch keine offizielle Firmware veröffentlicht',
+      noPublishedNote: 'Zurzeit ist kein Update verfügbar. Versuchen Sie es später erneut.',
+      repositoryReady: 'Offizielle Firmware verfügbar',
+      repositoryNote:
+        'Wählen Sie Firmware aktualisieren, um die ausgewählte Version zu installieren.',
+      downgrade: 'Ältere Version ausgewählt',
+      downgradeNote: 'Eine ältere Firmware-Version wurde ausgewählt.',
+      same: 'Diese Version ist bereits installiert',
+      update: 'Update verfügbar',
+      downgradeConfirm: 'Sie installieren eine ältere Firmware-Version. Fortfahren?',
     },
     fr: {
       subtitle: 'Connectez votre appareil et recherchez les mises à jour.',
-      choose: 'Version à installer', latest: 'Dernière', installed: 'Installée', older: 'Antérieure', newer: 'Plus récente',
-      target: 'Version sélectionnée', latestLabel: 'Dernière version', selectHint: 'La dernière version est sélectionnée par défaut. Les versions officielles précédentes restent disponibles.',
-      noPublished: 'Aucun firmware officiel publié', noPublishedNote: 'Aucune mise à jour disponible pour le moment. Réessayez plus tard.',
-      repositoryReady: 'Firmware officiel disponible', repositoryNote: 'Cliquez sur Mettre a jour pour installer la version sélectionnée.',
-      downgrade: 'Version antérieure sélectionnée', downgradeNote: 'Vous avez sélectionné une version antérieure.',
-      same: 'Cette version est déjà installée', update: 'Mise à jour disponible',
-      downgradeConfirm: 'Vous allez installer une ancienne version du firmware. Continuer ?'
+      choose: 'Version à installer',
+      latest: 'Dernière',
+      installed: 'Installée',
+      older: 'Antérieure',
+      newer: 'Plus récente',
+      target: 'Version sélectionnée',
+      latestLabel: 'Dernière version',
+      selectHint:
+        'La dernière version est sélectionnée par défaut. Les versions officielles précédentes restent disponibles.',
+      noPublished: 'Aucun firmware officiel publié',
+      noPublishedNote: 'Aucune mise à jour disponible pour le moment. Réessayez plus tard.',
+      repositoryReady: 'Firmware officiel disponible',
+      repositoryNote: 'Cliquez sur Mettre a jour pour installer la version sélectionnée.',
+      downgrade: 'Version antérieure sélectionnée',
+      downgradeNote: 'Vous avez sélectionné une version antérieure.',
+      same: 'Cette version est déjà installée',
+      update: 'Mise à jour disponible',
+      downgradeConfirm: 'Vous allez installer une ancienne version du firmware. Continuer ?',
     },
     es: {
       subtitle: 'Conecta tu dispositivo y busca actualizaciones.',
-      choose: 'Versión a instalar', latest: 'Última', installed: 'Instalada', older: 'Anterior', newer: 'Más reciente',
-      target: 'Versión seleccionada', latestLabel: 'Última versión', selectHint: 'La última versión se selecciona por defecto. Las versiones oficiales anteriores siguen disponibles.',
-      noPublished: 'No hay firmware oficial publicado', noPublishedNote: 'No hay actualizaciones disponibles ahora. Inténtalo mas tarde.',
-      repositoryReady: 'Firmware oficial disponible', repositoryNote: 'Pulsa Actualizar firmware para instalar la version seleccionada.',
-      downgrade: 'Versión anterior seleccionada', downgradeNote: 'Has seleccionado una versión anterior del firmware.',
-      same: 'Esta versión ya está instalada', update: 'Actualización disponible',
-      downgradeConfirm: 'Vas a instalar una versión anterior del firmware. ¿Continuar?'
-    }
+      choose: 'Versión a instalar',
+      latest: 'Última',
+      installed: 'Instalada',
+      older: 'Anterior',
+      newer: 'Más reciente',
+      target: 'Versión seleccionada',
+      latestLabel: 'Última versión',
+      selectHint:
+        'La última versión se selecciona por defecto. Las versiones oficiales anteriores siguen disponibles.',
+      noPublished: 'No hay firmware oficial publicado',
+      noPublishedNote: 'No hay actualizaciones disponibles ahora. Inténtalo mas tarde.',
+      repositoryReady: 'Firmware oficial disponible',
+      repositoryNote: 'Pulsa Actualizar firmware para instalar la version seleccionada.',
+      downgrade: 'Versión anterior seleccionada',
+      downgradeNote: 'Has seleccionado una versión anterior del firmware.',
+      same: 'Esta versión ya está instalada',
+      update: 'Actualización disponible',
+      downgradeConfirm: 'Vas a instalar una versión anterior del firmware. ¿Continuar?',
+    },
   };
 
   function language() {
-    const value = document.getElementById('languageSelect')?.value || document.documentElement.lang || 'en';
+    const value =
+      document.getElementById('languageSelect')?.value || document.documentElement.lang || 'en';
     return TEXT[value] ? value : 'en';
   }
-  function tr(key) { return TEXT[language()][key] || TEXT.en[key] || key; }
-  function normalizeVersion(value = '') { return String(value).trim().replace(/^v/i, '').split(/[+-]/)[0]; }
+  function tr(key) {
+    return TEXT[language()][key] || TEXT.en[key] || key;
+  }
+  function normalizeVersion(value = '') {
+    return String(value).trim().replace(/^v/i, '').split(/[+-]/)[0];
+  }
   function compareVersions(a, b) {
-    const pa = normalizeVersion(a).split('.').map(n => Number.parseInt(n, 10) || 0);
-    const pb = normalizeVersion(b).split('.').map(n => Number.parseInt(n, 10) || 0);
+    const pa = normalizeVersion(a)
+      .split('.')
+      .map((n) => Number.parseInt(n, 10) || 0);
+    const pb = normalizeVersion(b)
+      .split('.')
+      .map((n) => Number.parseInt(n, 10) || 0);
     for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
       const d = (pa[i] || 0) - (pb[i] || 0);
       if (d) return Math.sign(d);
@@ -88,46 +163,70 @@
   }
   async function sha256(buffer) {
     const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', buffer));
-    return Array.from(digest, b => b.toString(16).padStart(2, '0')).join('');
+    return Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('');
   }
 
-  async function loadGithubCatalog(force = false) {
+  /**
+   * Scarica la lista e valida ogni pacchetto. La cache e limitata a 30 secondi.
+   */
+  async function loadGithubCatalog(force = false, signal) {
     const now = Date.now();
     if (!force && catalogLoadedAt && now - catalogLoadedAt < 30000) return catalog;
 
     const listingResponse = await nativeFetch(`${API_URL}&v=${now}`, {
       cache: 'no-store',
-      headers: { Accept: 'application/vnd.github+json' }
+      signal,
+      headers: { Accept: 'application/vnd.github+json' },
     });
     if (listingResponse.status === 404) {
-      catalog = []; catalogError = ''; catalogLoadedAt = now; return catalog;
+      catalog = [];
+      catalogError = '';
+      catalogLoadedAt = now;
+      return catalog;
     }
     if (!listingResponse.ok) throw new Error(`GitHub API HTTP ${listingResponse.status}`);
 
     const listing = await listingResponse.json();
     if (!Array.isArray(listing)) throw new Error('Unexpected GitHub firmware directory response');
 
-    const files = listing.filter(item => item?.type === 'file' && /(?:_PROD|_USB)\.znfw$/i.test(item.name || ''));
-    const loaded = await Promise.all(files.map(async item => {
-      const version = versionFromFilename(item.name);
-      if (!version) return null;
-      const url = `./firmware/${encodeURIComponent(item.name)}`;
-      const response = await nativeFetch(`${url}?v=${encodeURIComponent(item.sha || now)}`, { cache: 'no-store' });
-      if (!response.ok) throw new Error(`${item.name}: HTTP ${response.status}`);
-      const bytes = await response.arrayBuffer();
-      // Inspect the product/HW/version fields, rather than assigning
-      // every file to ClearVoice or trusting its filename as identity.
-      const { inspectPackage } = await import('./znfw.js');
-      const pkg = await inspectPackage(bytes, item.name);
-      if (pkg.signatureRequired ? !/_PROD\.znfw$/i.test(item.name) : !/^HEADSET_BT_.*_USB\.znfw$/i.test(item.name))
-        throw new Error(`${item.name}: package policy does not match catalog filename`);
-      return {
-        product: pkg.productName, hardware: Array.from({length:32},(_,i)=>i)
-          .filter(i => pkg.hardwareMask & (1 << i)).map(i=>`REV${String(i+1).padStart(2,'0')}`),
-        version: pkg.version, format: 'znfw', url,
-        sha256: await sha256(bytes), filename: item.name, githubBlob: item.sha || ''
-      };
-    }));
+    const files = listing.filter(
+      (item) => item?.type === 'file' && /(?:_PROD|_USB)\.znfw$/i.test(item.name || ''),
+    );
+    const loaded = await Promise.all(
+      files.map(async (item) => {
+        const version = versionFromFilename(item.name);
+        if (!version) return null;
+        const url = `./firmware/${encodeURIComponent(item.name)}`;
+        const response = await nativeFetch(`${url}?v=${encodeURIComponent(item.sha || now)}`, {
+          cache: 'no-store',
+          signal,
+        });
+        if (!response.ok) throw new Error(`${item.name}: HTTP ${response.status}`);
+        const bytes = await response.arrayBuffer();
+        // Inspect the product/HW/version fields, rather than assigning
+        // every file to ClearVoice or trusting its filename as identity.
+        const { inspectPackage } = await import('./znfw.js');
+        const pkg = await inspectPackage(bytes, item.name);
+        if (
+          pkg.signatureRequired
+            ? !/_PROD\.znfw$/i.test(item.name)
+            : !/^HEADSET_BT_.*_USB\.znfw$/i.test(item.name)
+        )
+          throw new Error(`${item.name}: package policy does not match catalog filename`);
+        return {
+          product: pkg.productName,
+          hardware: Array.from({ length: 32 }, (_, i) => i)
+            .filter((i) => pkg.hardwareMask & (1 << i))
+            .map((i) => `REV${String(i + 1).padStart(2, '0')}`),
+          version: pkg.version,
+          format: 'znfw',
+          url,
+          sha256: await sha256(bytes),
+          filename: item.name,
+          githubBlob: item.sha || '',
+        };
+      }),
+    );
 
     catalog = loaded.filter(Boolean).sort((a, b) => -compareVersions(a.version, b.version));
     catalogError = '';
@@ -136,28 +235,34 @@
     return catalog;
   }
 
-  window.fetch = async function(input, init) {
+  window.fetch = async function (input, init) {
     const url = typeof input === 'string' ? input : input?.url || '';
     if (!url.includes(MANIFEST_NAME)) return nativeFetch(input, init);
     try {
-      const targets = await loadGithubCatalog(false);
+      // Il timeout della UI deve raggiungere anche le richieste GitHub fatte
+      // dall'adattatore del catalogo, non soltanto la fetch intercettata.
+      const targets = await loadGithubCatalog(false, init?.signal || input?.signal);
       queueMicrotask(refreshSelector);
       setTimeout(syncSelectionState, 100);
-      return new Response(JSON.stringify({
-        schema: 2,
-        repository: REPOSITORY,
-        source: 'github-contents',
-        branch: BRANCH,
-        directory: FIRMWARE_DIR,
-        targets
-      }), { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' } });
+      return new Response(
+        JSON.stringify({
+          schema: 2,
+          repository: REPOSITORY,
+          source: 'github-contents',
+          branch: BRANCH,
+          directory: FIRMWARE_DIR,
+          targets,
+        }),
+        { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' } },
+      );
     } catch (error) {
       catalog = [];
       catalogError = error?.message || String(error);
       catalogLoadedAt = Date.now();
       queueMicrotask(refreshSelector);
       return new Response(JSON.stringify({ schema: 2, repository: REPOSITORY, targets: [] }), {
-        status: 200, headers: { 'content-type': 'application/json; charset=utf-8' }
+        status: 200,
+        headers: { 'content-type': 'application/json; charset=utf-8' },
       });
     }
   };
@@ -179,26 +284,42 @@
     versionCompare.insertAdjacentElement('afterend', wrap);
 
     document.getElementById('firmwareVersionSelect').addEventListener('change', onVersionChange);
-    document.getElementById('languageSelect')?.addEventListener('change', () => setTimeout(() => {
-      refreshPublicCopy(); refreshSelector();
-    }, 0));
+    document.getElementById('languageSelect')?.addEventListener('change', () =>
+      setTimeout(() => {
+        refreshPublicCopy();
+        refreshSelector();
+      }, 0),
+    );
 
-    ['productValue', 'hardwareValue', 'installedValue'].forEach(id => {
+    ['productValue', 'hardwareValue', 'installedValue'].forEach((id) => {
       const node = document.getElementById(id);
-      if (node) new MutationObserver(scheduleSync).observe(node, { childList: true, characterData: true, subtree: true });
+      if (node)
+        new MutationObserver(scheduleSync).observe(node, {
+          childList: true,
+          characterData: true,
+          subtree: true,
+        });
     });
 
-    document.getElementById('refreshReleaseButton')?.addEventListener('click', event => {
-      if (event.isTrusted) catalogLoadedAt = 0;
-    }, true);
+    document.getElementById('refreshReleaseButton')?.addEventListener(
+      'click',
+      (event) => {
+        if (event.isTrusted) catalogLoadedAt = 0;
+      },
+      true,
+    );
 
-    document.getElementById('updateButton')?.addEventListener('click', event => {
-      if (!isDowngradeSelected()) return;
-      if (!window.confirm(tr('downgradeConfirm'))) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-      }
-    }, true);
+    document.getElementById('updateButton')?.addEventListener(
+      'click',
+      (event) => {
+        if (!isDowngradeSelected()) return;
+        if (!window.confirm(tr('downgradeConfirm'))) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      },
+      true,
+    );
 
     refreshPublicCopy();
     refreshSelector();
@@ -214,23 +335,32 @@
     return {
       product: shownProduct === 'ClearVoice Portable Unit' ? 'ClearVoice' : shownProduct,
       hardware: document.getElementById('hardwareValue')?.textContent?.trim() || '',
-      installed: document.getElementById('installedValue')?.textContent?.trim() || ''
+      installed: document.getElementById('installedValue')?.textContent?.trim() || '',
     };
   }
   function hardwareMatches(infoHw, rule) {
     if (!rule || rule === '*') return true;
-    if (Array.isArray(rule)) return rule.some(x => String(x).toLowerCase() === String(infoHw).toLowerCase());
+    if (Array.isArray(rule))
+      return rule.some((x) => String(x).toLowerCase() === String(infoHw).toLowerCase());
     return String(rule).toLowerCase() === String(infoHw).toLowerCase();
   }
   function compatibleTargets() {
     const { product, hardware } = deviceIdentity();
     const connected = document.getElementById('connectionPill')?.classList.contains('online');
-    return catalog.filter(item => {
-      if (!connected) return true;
-      return String(item.product || '').toLowerCase() === String(product || '').toLowerCase() && hardwareMatches(hardware, item.hardware);
-    }).sort((a, b) => -compareVersions(a.version, b.version));
+    return catalog
+      .filter((item) => {
+        if (!connected) return true;
+        return (
+          String(item.product || '').toLowerCase() === String(product || '').toLowerCase() &&
+          hardwareMatches(hardware, item.hardware)
+        );
+      })
+      .sort((a, b) => -compareVersions(a.version, b.version));
   }
 
+  /**
+   * Mostra solo release compatibili; durante un aggiornamento deve restare disabilitato.
+   */
   function refreshSelector() {
     const select = document.getElementById('firmwareVersionSelect');
     const label = document.getElementById('firmwareVersionSelectLabel');
@@ -252,19 +382,28 @@
     }
 
     const latest = compatible[0];
-    compatible.forEach(item => {
+    compatible.forEach((item) => {
       const flags = [];
       if (compareVersions(item.version, latest.version) === 0) flags.push(tr('latest'));
-      if (installed && installed !== '—' && compareVersions(item.version, installed) === 0) flags.push(tr('installed'));
-      else if (installed && installed !== '—') flags.push(compareVersions(item.version, installed) < 0 ? tr('older') : tr('newer'));
-      select.add(new Option(`v${normalizeVersion(item.version)}${flags.length ? ` — ${flags.join(' · ')}` : ''}`, item.version));
+      if (installed && installed !== '—' && compareVersions(item.version, installed) === 0)
+        flags.push(tr('installed'));
+      else if (installed && installed !== '—')
+        flags.push(compareVersions(item.version, installed) < 0 ? tr('older') : tr('newer'));
+      select.add(
+        new Option(
+          `v${normalizeVersion(item.version)}${flags.length ? ` — ${flags.join(' · ')}` : ''}`,
+          item.version,
+        ),
+      );
     });
 
-    const selected = compatible.find(item => normalizeVersion(item.version) === normalizeVersion(stored)) || latest;
+    const selected =
+      compatible.find((item) => normalizeVersion(item.version) === normalizeVersion(stored)) ||
+      latest;
     if (stored && selected !== latest) sessionStorage.setItem(STORAGE_KEY, selected.version);
     else if (!stored) sessionStorage.removeItem(STORAGE_KEY);
     select.value = selected.version;
-    select.disabled = false;
+    select.disabled = !!window.__ZN_UPDATER_BUSY__;
     hint.textContent = isDowngrade(selected, installed) ? tr('downgradeNote') : tr('selectHint');
     hint.classList.toggle('downgrade', isDowngrade(selected, installed));
     updateTargetLabel(selected.version !== latest.version);
@@ -284,12 +423,22 @@
     const selected = sessionStorage.getItem(STORAGE_KEY);
     const compatible = compatibleTargets();
     if (!compatible.length) return null;
-    return compatible.find(x => normalizeVersion(x.version) === normalizeVersion(selected)) || compatible[0];
+    return (
+      compatible.find((x) => normalizeVersion(x.version) === normalizeVersion(selected)) ||
+      compatible[0]
+    );
   }
   function isDowngrade(item, installed) {
-    return !!(item && installed && installed !== '—' && compareVersions(item.version, installed) < 0);
+    return !!(
+      item &&
+      installed &&
+      installed !== '—' &&
+      compareVersions(item.version, installed) < 0
+    );
   }
-  function isDowngradeSelected() { return isDowngrade(selectedTarget(), deviceIdentity().installed); }
+  function isDowngradeSelected() {
+    return isDowngrade(selectedTarget(), deviceIdentity().installed);
+  }
 
   function updateTargetLabel(selectedOlder) {
     const label = document.querySelector('.version-block.accent span');
@@ -301,19 +450,28 @@
     const notes = document.getElementById('releaseNotes');
     if (!badge || !notes) return;
     if (!catalog.length) {
-      badge.textContent = tr('noPublished'); badge.className = 'release-badge neutral';
+      badge.textContent = tr('noPublished');
+      badge.className = 'release-badge neutral';
       notes.textContent = catalogError || tr('noPublishedNote');
       return;
     }
-    badge.textContent = tr('repositoryReady'); badge.className = 'release-badge available';
+    badge.textContent = tr('repositoryReady');
+    badge.className = 'release-badge available';
     notes.textContent = tr('repositoryNote');
     if (!item) return;
     const installed = deviceIdentity().installed;
     if (!installed || installed === '—') return;
     const cmp = compareVersions(item.version, installed);
-    if (cmp === 0) { badge.textContent = tr('same'); badge.className = 'release-badge current'; }
-    else if (cmp < 0) { badge.textContent = tr('downgrade'); badge.className = 'release-badge warning'; }
-    else { badge.textContent = tr('update'); badge.className = 'release-badge available'; }
+    if (cmp === 0) {
+      badge.textContent = tr('same');
+      badge.className = 'release-badge current';
+    } else if (cmp < 0) {
+      badge.textContent = tr('downgrade');
+      badge.className = 'release-badge warning';
+    } else {
+      badge.textContent = tr('update');
+      badge.className = 'release-badge available';
+    }
   }
 
   function syncSelectionState() {
@@ -335,10 +493,14 @@
   function scheduleSync() {
     if (syncGuard) return;
     syncGuard = true;
-    requestAnimationFrame(() => { syncGuard = false; refreshSelector(); });
+    requestAnimationFrame(() => {
+      syncGuard = false;
+      refreshSelector();
+    });
   }
 
   window.__ZN_REFRESH_VERSIONS__ = refreshSelector;
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectUi, { once: true });
+  if (document.readyState === 'loading')
+    document.addEventListener('DOMContentLoaded', injectUi, { once: true });
   else injectUi();
 })();
