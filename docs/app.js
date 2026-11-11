@@ -23,7 +23,7 @@ const I18N = {
     subtitle: 'Collega il dispositivo ZeroNoise, verifica il firmware installato e aggiornalo in sicurezza dal repository GitHub ufficiale.',
     browserUnsupportedTitle: 'Browser non supportato', browserUnsupportedText: 'Usa una versione recente di Google Chrome o Microsoft Edge su desktop.',
     device: 'DISPOSITIVO', deviceStatus: 'Stato dispositivo', detectedProduct: 'Prodotto rilevato', mcu: 'MCU', serial: 'Numero seriale', hardware: 'Hardware', installed: 'Installata',
-    connect: 'Collega dispositivo', disconnect: 'Disconnetti', connectHint: 'Il browser chiederà il permesso di accedere all’interfaccia seriale USB FT234XD.',
+    connect: 'Collega dispositivo', disconnect: 'Disconnetti', connectHint: 'Il browser chiederà il permesso di accedere all’interfaccia seriale USB.',
     firmware: 'FIRMWARE', updateStatus: 'Stato aggiornamento', currentVersion: 'Versione attuale', latestVersion: 'Ultima versione', checkingRepository: 'Controllo repository…',
     releaseWaiting: 'Collega un dispositivo per confrontare le versioni firmware.', ready: 'Pronto', waitingForDevice: 'In attesa del dispositivo', updateFirmware: 'Aggiorna firmware',
     updateProcess: 'PROCESSO DI AGGIORNAMENTO', safeGuidedUpdate: 'Aggiornamento sicuro e guidato', stepConnect: 'Collega', stepConnectSub: 'Rileva dispositivo USB', stepCheck: 'Verifica', stepCheckSub: 'Confronta versioni', stepFlash: 'Aggiorna', stepVerify: 'Controlla', stepRestart: 'Riavvia', stepRestartSub: 'Conferma firmware',

@@ -144,6 +144,39 @@
         <p class="safety-copy">Do not disconnect USB or power while the update is running.</p>
       </div>
 
+      <section id="bm83Panel" class="bm83-panel" hidden aria-labelledby="bm83Title">
+        <h2 id="bm83Title">BM83 · Firmware audio</h2>
+        <p>Funzione in collaudo: il collegamento UART è verificato, il ciclo completo di programmazione BM83 resta da validare.</p>
+        <p>Caricamento tramite USB → STM32 → UART. Mantieni il BM83 alimentato, interrompi chiamate e riproduzione.</p>
+        <p>Seleziona un file <strong>Rehex BM83 General Use</strong> generato con isUpdate. Il caricamento avviene tramite MCU DFU; i file OTA cifrati non sono supportati.</p>
+        <label for="bm83File">Firmware BM83 (.hex)</label>
+        <input id="bm83File" type="file" accept=".hex,.HEX" />
+        <div class="support-actions">
+          <button id="bm83Probe" class="btn btn-secondary" disabled>Verifica collegamento BM83</button>
+          <button id="bm83Reset" class="btn btn-secondary" disabled>Riavvia BM83</button>
+          <button id="bm83Update" class="btn btn-secondary" disabled>Carica firmware BM83</button>
+        </div>
+        <progress id="bm83Progress" max="100" value="0" aria-label="Avanzamento BM83"></progress>
+        <p id="bm83Status" role="status">Installa sullo STM32 il firmware con supporto BM83, poi seleziona il file audio.</p>
+        <p id="bm83Rate">Caricamento MCU DFU: UART 115.200 baud.</p>
+        <div class="support-actions">
+          <label for="bm83Baud">Velocità da verificare in modalità programmazione</label>
+          <select id="bm83Baud">
+            <option value="921600" selected>921.600 baud</option>
+            <option value="460800">460.800 baud</option>
+            <option value="230400">230.400 baud</option>
+            <option value="115200">115.200 baud</option>
+          </select>
+          <button id="bm83FastProbe" class="btn btn-secondary" disabled>Verifica UART veloce</button>
+        </div>
+        <p>La prova UART veloce riavvia il BM83, verifica il collegamento e torna alla modalità normale. Non scrive il firmware.</p>
+        <details id="bm83LogPanel" open>
+          <summary>Log collaudo BM83</summary>
+          <pre id="bm83Log" aria-label="Log collaudo BM83">Pronto. Nessun trasferimento avviato.</pre>
+          <button id="bm83DownloadLog" class="btn btn-secondary">Scarica log BM83</button>
+        </details>
+      </section>
+
       <details class="support-inline">
         <summary>Support &amp; diagnostics</summary>
         <div class="support-grid">

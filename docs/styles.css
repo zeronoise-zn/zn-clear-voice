@@ -153,6 +153,14 @@ svg { display: block; fill: none; stroke: currentColor; stroke-width: 1.9; strok
 .support-inline { grid-column: 1 / -1; border-top: 1px solid var(--line); background: rgba(3,8,12,.16); }
 .support-inline summary { list-style: none; cursor: pointer; padding: 13px 18px; color: var(--muted); font-size: 11px; font-weight: 800; }
 .support-inline summary::-webkit-details-marker { display: none; }
+#bm83Panel { grid-column: 1 / -1; border-top: 1px solid var(--line); padding: 18px; overflow-wrap: anywhere; }
+#bm83Panel p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+#bm83Panel input { display: block; margin: 10px 0 16px; max-width: 100%; }
+#bm83Panel progress { width: 100%; margin-top: 16px; accent-color: var(--accent); }
+#bm83Panel .support-actions { flex-direction: row; flex-wrap: wrap; }
+#bm83Panel pre { max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; background: #0e141c; color: #d8e8ef; padding: 12px; border-radius: 8px; }
+#bm83Panel details { margin-top: 16px; min-width: 0; }
+#bm83Panel select { max-width: 100%; padding: 8px; }
 .support-inline[open] summary { border-bottom: 1px solid var(--line); }
 .support-grid { display: grid; grid-template-columns: .65fr 1.35fr; gap: 18px; padding: 16px 18px 18px; }
 .support-actions { display: flex; flex-direction: column; gap: 8px; }
