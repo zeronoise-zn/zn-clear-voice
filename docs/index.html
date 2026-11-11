@@ -144,8 +144,16 @@
         <p class="safety-copy">Do not disconnect USB or power while the update is running.</p>
       </div>
 
+      <div class="bm83-auto-settings">
+        <label class="bm83-auto-choice"><input id="bm83AutoEnable" type="checkbox" checked /> HEADSET_BT: verifica e installazione automatica BM83 alla connessione</label>
+      </div>
+
       <section id="bm83Panel" class="bm83-panel" hidden aria-labelledby="bm83Title">
         <h2 id="bm83Title">BM83 · Firmware audio</h2>
+        <p>La verifica entra in TEST e interrompe temporaneamente Bluetooth/audio. Se il firmware e la configurazione coincidono, non riscrive la Flash. Le porte gia autorizzate si riconnettono automaticamente.</p>
+        <p id="bm83Online">Riferimento web: in attesa della connessione.</p>
+        <p id="bm83Installed">Firmware BM83 installato: da verificare.</p>
+        <button id="bm83AutoRun" class="btn btn-secondary" disabled>Verifica e aggiorna dal web</button>
         <p>Funzione in collaudo: il collegamento UART è verificato, il ciclo completo di programmazione BM83 resta da validare.</p>
         <p>Caricamento tramite USB → STM32 → UART. Mantieni il BM83 alimentato, interrompi chiamate e riproduzione.</p>
         <p>Seleziona un file <strong>Rehex BM83 Full Image for general DFU</strong> generato con isUpdate. La programmazione TEST confronta i settori interessati e verifica i dati riletti, conservando la calibrazione. I file OTA cifrati non sono supportati.</p>

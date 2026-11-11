@@ -126,3 +126,33 @@ test('Cancellation during comparison releases session and stops before any write
   await assert.rejects(f.read(0,16),/BM83_SPI/);
   await assert.rejects(f.sector(0x2000,new Uint8Array(4096)),/non consentito/);
 });
+
+function automaticPlan(){
+  const p=smallPlan(),header=new Uint8Array(4096).fill(255),body=new Uint8Array(12288).fill(255);
+  header.set([0,0x80,4,0,0,0,6,0x81,4,0x23,0x45,0x4e,0x44]);body[0]=2;body.set([1,2,3,4],0x21fc);
+  const config=new Uint8Array(4096).fill(255);config[0]=0;config[8]=17;
+  p.regions=[{name:'HEADER',start:0,bytes:header},{name:'MCU',start:0x10000,bytes:body},
+    {name:'CONFIG',start:0x6000,bytes:config},{name:'RUNTIME',start:0x4000,bytes:new Uint8Array(8192).fill(255)}];
+  return p;
+}
+test('Automatic first install verifies the image; reconnect skips writes and preserves mutable runtime',async()=>{
+  const s=simulated(),p=automaticPlan();s.memory[0x4000]=0x42;
+  const first=await s.updater.run(p,{automatic:true});
+  assert.equal(first.firstInstall,true);assert.equal(s.memory[0x4000],255);
+  s.memory[0x4000]=0x54;
+  const before=s.operations.length;
+  const second=await s.updater.run(p,{automatic:true});
+  assert.equal(second.state,'UP_TO_DATE');assert.equal(s.memory[0x4000],0x54);
+  assert(!s.operations.slice(before).some(o=>[2,0x20,0x42].includes(o.op)));
+  assert.equal(s.events.at(-1).state,'BM83_UP_TO_DATE');
+});
+test('Automatic comparison detects config revision with equal MCU version and blocks newer MCU downgrade',async()=>{
+  const s=simulated(),p=automaticPlan();await s.updater.run(p,{automatic:true});
+  s.memory[0x4000]=0x55;p.regions.find(r=>r.name==='CONFIG').bytes[8]^=1;
+  const before=s.operations.length;await s.updater.run(p,{automatic:true});
+  assert.deepEqual(s.operations.slice(before).filter(o=>o.op===0x20).map(o=>o.address),[0x4000,0x6000]);
+  s.memory.set([1,9,0,0],0x121fc);const start=s.operations.length;
+  await assert.rejects(s.updater.run(p,{automatic:true}),/BM83_NEWER_FIRMWARE/);
+  assert(!s.operations.slice(start).some(o=>[2,0x20,0x42].includes(o.op)));
+  assert(!s.bridge.opened);
+});

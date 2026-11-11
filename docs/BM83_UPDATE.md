@@ -60,7 +60,8 @@ parziale, va riprogrammata tramite TEST. Il bootloader STM32 resta disponibile.
 La rilettura MSPK2 v1.3.5 identifica MCU 1.03.0506, DSP 1.04.0412, isUpdate 3.16,
 Config GUI 1.3.25 e SPKCommandSetTool 206.008. Il file utente BT_HEADSET_V0_11A8
 contiene invece MCU 1.03.0406 e DSP 1.04.0411, anche secondo i commenti di origine
-nel file. Nessuna immagine o cartella BM83 locale e aggiunta a Git.
+nel file. La cartella locale BM83 resta esclusa da Git. L'unica immagine autorizzata
+per la pubblicazione web e ora BT_HEADSET_REV2_0EB3.HEX (vedi sotto).
 
 Il limite 115200 del vecchio percorso MCU DFU e un'impostazione del client,
 non un limite assoluto del BM83: AudioUART 2.09, par. 4.3, ammette baud
@@ -352,3 +353,49 @@ implementazione con errori/CRC/offset/rilettura/disconnessione; il test Chrome
 verifica il percorso pagina, assenza di backup automatici e risposte USB da 4096 byte.
 La nuova velocita utile va misurata sulla scheda: non viene dichiarato un fattore
 prima del collaudo hardware.
+
+## Verifica e aggiornamento automatici dal web
+
+Il catalogo `bm83/manifest.json` indica l'immagine autorizzata
+`BT_HEADSET_REV2_0EB3.HEX`, MCU 1.03.0506 e DSP 1.04.0412, con SHA-256
+`e93178b1d9cd9e3a1666700dde1a12d69c30baaa8f88a6e0a0c20e3913164238`.
+Solo questa immagine e pubblicata in `docs/bm83/`; la cartella vendor locale
+`BM83/` non viene sincronizzata. `.gitattributes` conserva i byte originali
+CRLF del file per mantenere lo stesso hash dopo GitHub Pages.
+
+L'opzione automatica e attiva inizialmente e si puo disattivare prima della
+connessione. La prima autorizzazione seriale richiede Connetti e la scelta
+della porta nel browser. Successivamente `navigator.serial.getPorts()`
+riconnette una sola HEADSET_BT gia autorizzata (VID CAFE, PID 4011), al
+caricamento della pagina o all'evento USB connect. Con piu schede occorre
+selezionare manualmente quella desiderata. Disconnetti sospende la
+riconnessione per la pagina corrente. Nessun permesso seriale e richiesto
+in background e ClearVoice non attiva questa procedura.
+
+Prima di aprire TEST si verificano prodotto, hardware, formato, percorso
+immagine, SHA-256 e versioni del catalogo. La verifica interrompe Bluetooth
+e audio, entra in TEST a 921600 baud, legge header e versione MCU dalla Flash
+e confronta tutti i settori HEADER/MCU/DSP/CONFIG previsti dall'immagine.
+Non richiede UART APP: il modulo torna in Embedded Mode. Una versione MCU
+o DSP installata piu recente blocca l'aggiornamento automatico; la sostituzione
+intenzionale resta disponibile tramite caricamento manuale.
+
+Le sole versioni MCU/DSP non identificano la configurazione: anche una REV1
+con gli stessi numeri viene aggiornata se CONFIG differisce. Se tutti i byte
+immutabili coincidono, lo stato BM83_UP_TO_DATE rilascia la sessione senza
+cancellazioni, scritture o modifiche BPR. I dati RUNTIME 4000-5FFF sono mutabili
+e non provocano aggiornamenti. RUNTIME viene cancellato solo quando viene
+realmente aggiornato CONFIG. Un header assente o incompleto permette la prima
+installazione/recupero, mantenendo gli 8 KiB di calibrazione gia presenti.
+Una Flash vergine non contiene una calibrazione di fabbrica recuperabile.
+
+Gli errori interrompono il flusso, senza ripetere automaticamente le scritture.
+Interrompi annulla il download o ferma la programmazione al prossimo controllo;
+un'immagine parziale richiede un nuovo caricamento. TEST e RESET sono rilasciati
+come nel percorso manuale. La sola ricarica USB, senza sessione della pagina,
+non modifica i pin. La verifica finale certifica i dati Flash, non Bluetooth/audio.
+
+Test automatici e browser Chrome con seriale simulata coprono catalogo/hash,
+prima installazione, riconnessione autorizzata senza dialoghi, confronto CONFIG,
+assenza di riscritture con RUNTIME modificato, calibrazione e blocco downgrade.
+La procedura automatica completa va ancora collaudata sulla scheda reale.

@@ -6,6 +6,7 @@ import { inspectBm83Image } from './bm83-image.js';
 import { Bm83Updater } from './bm83-updater.js';
 import { Bm83FlashUpdater,planBm83Flash } from './bm83-flash.js';
 import {latestBm83Backup} from './bm83-backup.js';
+import {Bm83AutoUpdater} from './bm83-auto.js';
 
 const PRODUCT_DISPLAY_NAMES = new Map([
   ['ClearVoice', 'ClearVoice Portable Unit'],
@@ -44,6 +45,8 @@ export function startUi(translations, config) {
   let lastAttempt = null;
   let applicationDiagnostics = {};
   let bm83=null, bm83Flash=null, bm83Image=null, bm83FlashImage=null, bm83Selecting=false, bm83UsbBlock=0;
+  let bm83Auto=null,bm83AutoAttempted=false,manualDisconnected=false;
+  $('bm83AutoEnable').checked=localStorage.getItem('zn-bm83-auto')!=='0';
   const bm83Log=[];let bm83LogBytes=0,bm83LogDropped=0,bm83LogRender=0;
   function bm83Record(event) {
     const record={time:new Date().toISOString(),...event,error:event.error instanceof Error?event.error.message:event.error};
@@ -58,9 +61,9 @@ export function startUi(translations, config) {
     const node = $('technicalLog'); node.textContent = (node.textContent + `\n${new Date().toISOString()} ${message} ${detail}`).slice(-524288);
     node.scrollTop = node.scrollHeight;
   };
-  const busy = () => selecting || manifestLoading || updater?.busy || bm83?.busy || bm83Flash?.busy || bm83Selecting;
+  const busy = () => selecting || manifestLoading || updater?.busy || bm83?.busy || bm83Flash?.busy || bm83Auto?.busy || bm83Selecting;
   function trace(direction,detail) {
-    if(bm83Flash?.busy && /^(?:ZN_BM83_(?:TX |RX\?)|\[BM83\] (?:DATA=|TX=OK))/.test(detail))return;
+    if(bm83Flash?.busy && /^(?:ZN_BM83_(?:TX |RX\?|READ |CHUNK )|\[BM83\] (?:DATA=|READ=|TX=OK|CHUNK=))/.test(detail))return;
     log(direction,detail);
     if (direction === 'TX' && detail.includes('ZN_STATS?')) {
       applicationDiagnostics = {};
@@ -95,7 +98,9 @@ export function startUi(translations, config) {
     $('bm83Update').disabled=!connected || locked || !headset || !bm83Image || !bridgeReady || testMode && (!bm83FlashImage || updater?.info?.bm83_bridge!==3);
     $('bm83FastProbe').disabled=!connected || locked || !headset || ![2,3].includes(updater?.info?.bm83_bridge);
     $('bm83Protocol').disabled=locked;
-    $('bm83Cancel').disabled=!bm83Flash?.busy;
+    $('bm83Cancel').disabled=!bm83Flash?.busy&&!bm83Auto?.busy;
+    $('bm83AutoEnable').disabled=locked;
+    $('bm83AutoRun').disabled=!connected||locked||!headset;
     $('bm83Baud').disabled=locked;
     $('connectionPill').classList.toggle('online', connected); $('connectionPill').classList.toggle('offline', !connected);
     $('deviceIcon').classList.toggle('online', connected);
@@ -212,13 +217,8 @@ export function startUi(translations, config) {
     } catch (e) { selectionError = true; $('packageInfo').textContent = e.message; error(e); }
     finally { selecting = false; evaluateTarget(); }
   });
-  $('connectButton').addEventListener('click', async () => {
-    if (busy()) return;
-    if (io?.connected) { await io.close(); io = null; updater = null; invalidateConnection(); controls(); return; }
-    selecting = true; controls();
-    try {
+  async function openConnection(port) {
       if (io) await io.close();
-      const port = await navigator.serial.requestPort({ filters: config.usbFilters });
       if (lastAttempt && lastAttempt.port !== port) {
         log('UPDATE EVIDENCE', 'Selected port differs from the update port; previous END acceptance discarded.');
         lastAttempt = null;
@@ -228,9 +228,39 @@ export function startUi(translations, config) {
       updater = new FirmwareUpdater(io, notify);
       bm83 = new Bm83Updater(io,bm83Notify);
       bm83Flash = new Bm83FlashUpdater(io,bm83Notify);
+      bm83Auto=new Bm83AutoUpdater(bm83Flash,bm83Notify);
+      bm83AutoAttempted=false;
       await updater.connect(lastAttempt?.pkg || null, !!lastAttempt?.endAccepted);
+  }
+  async function automaticBm83(force=false) {
+    if(busy()||!io?.connected||!bm83Auto||updater?.info?.product!=='HEADSET_BT'||updater.info.mode!=='application'||
+       (!force&&(!$('bm83AutoEnable').checked||bm83AutoAttempted)))return;
+    bm83AutoAttempted=true;
+    try {const pending=bm83Auto.run(updater.info);controls();await pending;}
+    catch(e){bm83Notify({state:'BM83_AUTO_FAILED',error:e});}
+    finally {controls();}
+  }
+  async function automaticConnection() {
+    if(busy()||io?.connected||manualDisconnected||!$('bm83AutoEnable').checked||!navigator.serial?.getPorts||!isSecureContext)return;
+    try {
+      const ports=(await navigator.serial.getPorts()).filter(p=>{const v=p.getInfo();return v.usbVendorId===0xcafe&&v.usbProductId===0x4011;});
+      if(ports.length!==1||busy()||io?.connected)return;
+      selecting=true;controls();
+      try {await openConnection(ports[0]);}
+      finally {selecting=false;controls();}
+      await automaticBm83();
+    } catch(e){if(io)await io.close();invalidateConnection();log('Auto connection',e.message);controls();}
+  }
+  $('connectButton').addEventListener('click', async () => {
+    if (busy()) return;
+    if (io?.connected) { manualDisconnected=true;await io.close();io=null;updater=null;invalidateConnection();controls();return; }
+    selecting = true; controls();
+    try {
+      const port=await navigator.serial.requestPort({filters:config.usbFilters});
+      manualDisconnected=false;await openConnection(port);
     } catch (e) { if (io) await io.close(); error(e); }
     finally { selecting = false; controls(); }
+    await automaticBm83();
   });
   $('updateButton').addEventListener('click', async () => {
     if (busy()) return;
@@ -254,6 +284,7 @@ export function startUi(translations, config) {
       lastAttempt = {pkg,endAccepted:false,port:io.port};
       log('UPDATE ATTEMPT', `package=${pkg.packageHash} identity=${pkg.identity?.buildId || 'UNKNOWN'}`);
       await updater.run(pkg);
+      await automaticBm83();
     } catch (e) { error(e); }
     finally { controls(); }
   });
@@ -273,10 +304,16 @@ export function startUi(translations, config) {
     if(event.kind==='SESSION')bm83UsbBlock=0;
     if(event.kind==='TRANSFER_MODE')bm83UsbBlock=event.usbBlock;
     if(event.state==='BM83_LOG')return;
+    const version=v=>v?.join('.')||'assente / non leggibile';
+    if(event.state==='BM83_ONLINE_REFERENCE')$('bm83Online').textContent=`Web REV${event.revision}: MCU ${version(event.versions.MCU)} · DSP ${version(event.versions.DSP)}`;
+    if(event.state==='BM83_INSTALLED')$('bm83Installed').textContent=event.validHeader?`Flash installata: MCU ${version(event.mcu)} · DSP ${version(event.dsp)}. Confronto configurazione in corso.`:'Immagine assente o incompleta: prima installazione / recupero.';
     log(event.state,event.error?.message || event.part || '');
     const p=event.total?Math.floor(100*event.offset/event.total):null;
     if(p!==null)$('bm83Progress').value=p;
-    const states={BM83_CONNECTING:'Collegamento al BM83...',BM83_START:'Avvio aggiornamento BM83...',
+    const states={BM83_CATALOG_LOADING:'Ricerca firmware BM83 sul web...',BM83_IMAGE_DOWNLOADING:'Download firmware BM83...',
+      BM83_ONLINE_REFERENCE:'Riferimento web verificato; confronto con la Flash BM83...',BM83_INSTALLED:'Lettura firmware installato; confronto dati...',
+      BM83_UP_TO_DATE:'BM83 gia aggiornato al riferimento web: nessuna riscrittura.',BM83_AUTO_FAILED:'Verifica/aggiornamento automatico interrotto.',
+      BM83_CONNECTING:'Collegamento al BM83...',BM83_START:'Avvio aggiornamento BM83...',
       BM83_POWERING_ON:'Accensione BM83 via UART e attesa standby...',BM83_LEAVING_PAIRING:'Uscita dal pairing e attesa standby...',
       BM83_COMPARING:`Confronto settori ${event.part || ''}: ${p ?? 0}%`,BM83_FLASHING:`Scrittura ${event.part || ''}: ${p ?? 0}%`,
       BM83_FLASH_VERIFY:`Confronto dati riletti ${event.part || ''}: ${p ?? 0}%`,
@@ -284,7 +321,11 @@ export function startUi(translations, config) {
       BM83_REBOOTING:'Riavvio BM83...',BM83_COMPLETE:'Immagini validate dal BM83; versioni MCU/DSP corrispondenti dopo il riavvio.',
       BM83_REBOOT_UNVERIFIED:'Trasferimento terminato; riavvio BM83 non verificato.',BM83_FAILED:'Aggiornamento BM83 non completato.'};
     $('bm83Status').textContent=event.error?.message || (event.state==='BM83_COMPLETE' && event.readbackVerified?'Flash verificata; calibrazione conservata. TEST flottante, Q1 spento. Avvio Embedded: accendi con MFB e verifica Bluetooth/audio.':states[event.state]) || event.state;
-    if(event.state==='BM83_COMPLETE')$('bm83Progress').value=100;
+    if(event.state==='BM83_COMPLETE'){
+      $('bm83Progress').value=100;
+      if(event.readbackVerified)$('bm83Installed').textContent=`Flash verificata: MCU ${version(event.expectedVersions?.MCU)} ? DSP ${version(event.expectedVersions?.DSP)}. Configurazione aggiornata.`;
+    }
+    if(event.state==='BM83_UP_TO_DATE'){$('bm83Progress').value=100;$('bm83Installed').textContent='Firmware e configurazione installati corrispondono al riferimento web.';}
     if(event.bytesPerSecond!==undefined)$('bm83Rate').textContent=`UART MCU DFU: 115.200 baud · velocità media utile ${event.bytesPerSecond} byte/s · tempo ${(event.elapsedMs/1000).toFixed(1)} s`;
     else if(event.baud)$('bm83Rate').textContent=`UART TEST: ${event.baud.toLocaleString('it-IT')} baud${bm83UsbBlock?' · blocchi '+bm83UsbBlock+' byte · gestione '+(bm83UsbBlock===4096?'STM32':'browser'):''} · tempo ${(event.elapsedMs/1000).toFixed(1)} s`;
     controls();
@@ -327,7 +368,12 @@ export function startUi(translations, config) {
   $('bm83Baud').addEventListener('change',()=>{
     if($('bm83Protocol').value==='TEST')$('bm83Rate').textContent=`Programmazione TEST: UART ${Number($('bm83Baud').value).toLocaleString('it-IT')} baud.`;
   });
-  $('bm83Cancel').addEventListener('click',()=>bm83Flash?.cancel());
+  $('bm83Cancel').addEventListener('click',()=>bm83Auto?.busy?bm83Auto.cancel():bm83Flash?.cancel());
+  $('bm83AutoRun').addEventListener('click',()=>automaticBm83(true));
+  $('bm83AutoEnable').addEventListener('change',()=>{
+    localStorage.setItem('zn-bm83-auto',$('bm83AutoEnable').checked?'1':'0');
+    if($('bm83AutoEnable').checked){manualDisconnected=false;void(io?.connected?automaticBm83(true):automaticConnection());}
+  });
   $('bm83BackupDownload').addEventListener('click',async()=>{
     try {
       const backup=await latestBm83Backup();
@@ -368,7 +414,9 @@ export function startUi(translations, config) {
   navigator.serial?.addEventListener('disconnect', e => {
     if ((e.port || e.target) === io?.port) io.fail(new UpdateError('SERIAL_DISCONNECTED', 'USB device removed.'));
   });
+  navigator.serial?.addEventListener('connect',()=>void automaticConnection());
   function invalidateConnection() {
+    bm83Auto?.cancel();
     $('releaseBadge').textContent = 'DEVICE DISCONNECTED'; $('releaseBadge').className = 'release-badge neutral';
     $('installationStatus').textContent = 'UPDATE NOT CURRENTLY VERIFIED — reconnect to read device state';
     $('progressLabel').textContent = 'DISCONNECTED';
@@ -382,5 +430,5 @@ export function startUi(translations, config) {
   }
   applyLanguage();
   if (!navigator.serial || !isSecureContext) { $('browserWarning').classList.remove('hidden'); $('connectButton').disabled = true; }
-  void loadManifest();
+  void loadManifest().finally(()=>automaticConnection());
 }

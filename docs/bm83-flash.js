@@ -12,6 +12,29 @@ const equal=(a,b)=>a.length===b.length && a.every((v,i)=>v===b[i]);
 const fail=(code,message)=>{throw new UpdateError(code,message);};
 const addressBytes=a=>[a>>>16,(a>>>8)&255,a&255];
 export const sha256=async bytes=>hex(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)));
+const versionCompare=(a,b)=>{for(let i=0;i<4;i++){if(a[i]!==b[i])return Math.sign(a[i]-b[i]);}return 0;};
+
+export async function readBm83FlashIdentity(flash) {
+  const header=await flash.read(0,4096);
+  const empty=header.every(b=>b===255);
+  let validHeader=false,dsp=null;
+  if(header[0]===0 && header[1]===0x80 && header[2]===4) {
+    const end=7+new DataView(header.buffer,header.byteOffset,header.length).getUint32(3,false);
+    if(end>=13 && end<=4096 && header[end-6]===0x81 && header[end-5]===4 &&
+       new DataView(header.buffer,header.byteOffset,header.length).getUint32(end-4,false)===0x23454e44) {
+      let at=7;validHeader=true;
+      while(at<end-6){const tag=header[at++],length=header[at++];
+        if(!length||at+length>end-6){validHeader=false;break;}
+        if(tag===0x92 && length===4)dsp=Array.from(header.slice(at,at+4));
+        at+=length;
+      }
+      if(at!==end-6)validHeader=false;
+    }
+  }
+  const raw=Array.from(await flash.read(0x121fc,4));
+  const mcu=raw.every(b=>b===255)||raw.every(b=>b===0)?null:raw;
+  return {validHeader,empty,mcu,dsp:validHeader?dsp:null};
+}
 
 export async function planBm83Flash(text,filename) {
   const image=await inspectBm83Image(text,filename),{data,present}=parseBm83Hex(text);
@@ -149,7 +172,7 @@ export class Bm83FlashUpdater {
     this.busy=false;this.cancelled=false;
   }
   cancel(){this.cancelled=true;}
-  async run(plan,{baud=921600}={}) {
+  async run(plan,{baud=921600,automatic=false}={}) {
     if(this.busy)fail('BUSY','Operazione BM83 in corso.');
     if(plan?.format!=='BM83_TEST_SPI' || !plan.regions?.length)
       fail('BM83_FLASH_PLAN','Piano TEST obbligatorio.');
@@ -175,18 +198,43 @@ export class Bm83FlashUpdater {
       const batch=/\bSPI_BATCH=4096\b/.test(capabilities);
       log({kind:'TRANSFER_MODE',usbBlock:batch?4096:32,executor:batch?'STM32':'BROWSER'});
       flash=new Bm83SpiFlash(link,{sleep:this.sleep,check,bridge:batch?bridge:null});
+      let installed=null;
+      if(automatic) {
+        installed=await readBm83FlashIdentity(flash);
+        this.notify({state:'BM83_INSTALLED',...installed});
+        for(const part of plan.images) {
+          const actual=part.type===0?installed.mcu:part.type===1?installed.dsp:null;
+          if(installed.validHeader && actual && part.version && versionCompare(actual,part.version)>0)
+            fail('BM83_NEWER_FIRMWARE','La Flash contiene una versione '+part.name+' piu recente: downgrade automatico bloccato.');
+        }
+      }
       // Retain only calibration in RAM; no full dump or persistent backup.
       await bridge.rpc('ZN_BM83_GUARD ON','GUARD');guarded=true;
       const calibration=await flash.read(0x2000,0x2000);
       log({kind:'CALIBRATION_SNAPSHOT',bytes:calibration.length,sha256:await sha256(calibration)});
       protection=await flash.protection();
       const sectors=[];let compared=0;
-      const compareTotal=plan.regions.reduce((n,r)=>n+r.bytes.length,0);
-      for(const region of plan.regions)for(let offset=0;offset<region.bytes.length;offset+=4096){
+      // Runtime is mutable application data, never evidence of stale firmware.
+      const compareRegions=automatic?plan.regions.filter(r=>r.name!=='RUNTIME'):plan.regions;
+      const compareTotal=compareRegions.reduce((n,r)=>n+r.bytes.length,0);
+      for(const region of compareRegions)for(let offset=0;offset<region.bytes.length;offset+=4096){
         const address=region.start+offset,bytes=region.bytes.slice(offset,offset+4096);
         const current=await flash.read(address,bytes.length);
         if(!equal(current,bytes))sectors.push({address,bytes,name:region.name});
         compared+=bytes.length;progress('BM83_COMPARING',compared,compareTotal,region.name);
+      }
+      const expectedVersions=Object.fromEntries(plan.images.filter(p=>p.version).map(p=>[p.name,p.version]));
+      if(automatic && !sectors.length) {
+        check();await bridge.rpc('ZN_BM83_GUARD OFF','GUARD');guarded=false;
+        await bridge.close();
+        this.notify({state:'BM83_UP_TO_DATE',readbackVerified:true,expectedVersions,sha256:plan.sha256,elapsedMs:Date.now()-started});
+        return {state:'UP_TO_DATE',installed,expectedVersions};
+      }
+      // Microchip requires clearing runtime when CONFIG is actually updated.
+      const clearRuntime=automatic && sectors.some(s=>s.name==='CONFIG');
+      if(clearRuntime)for(const region of plan.regions.filter(r=>r.name==='RUNTIME'))for(let offset=0;offset<region.bytes.length;offset+=4096){
+        const address=region.start+offset,bytes=region.bytes.slice(offset,offset+4096);
+        if(!equal(await flash.read(address,bytes.length),bytes))sectors.push({address,bytes,name:region.name});
       }
       // Headers last, secondary first. Guard stays on until the complete
       // physical image, calibration and restored BPR have been verified.
@@ -202,7 +250,7 @@ export class Bm83FlashUpdater {
         await flash.sector(sector.address,sector.bytes);sent+=4096;
         progress('BM83_FLASHING',sent,sectors.length*4096,sector.name);
       }
-      for(const region of plan.regions){
+      for(const region of plan.regions.filter(r=>!automatic || r.name!=='RUNTIME' || clearRuntime)){
         context={phase:'READBACK',part:region.name,address:region.start};
         const actual=await flash.read(region.start,region.bytes.length,(n,total)=>progress('BM83_FLASH_VERIFY',n,total,region.name));
         if(!equal(actual,region.bytes))fail('BM83_FLASH_VERIFY',region.name+': verifica finale fallita.');
@@ -216,9 +264,9 @@ export class Bm83FlashUpdater {
       // Embedded Mode may disable the APP UART entirely. Do not require
       // host-mode commands or power-on via UART after programming. Physical
       // readback above proves the image; MFB/Bluetooth/audio prove operation.
-      const expectedVersions=Object.fromEntries(plan.images.filter(p=>p.version).map(p=>[p.name,p.version]));
       log({kind:'EMBEDDED_RELEASED',testPin:'FLOATING',q1:'OFF',runtimeVerified:false,expectedVersions});
       this.notify({state:'BM83_COMPLETE',protocol:'TEST_HCI_SPI',baud,applicationMode:'EMBEDDED',readbackVerified:true,calibrationPreserved:true,runtimeVerified:false,expectedVersions,elapsedMs:Date.now()-started});
+      return {state:'COMPLETE',installed,expectedVersions,firstInstall:automatic&&!installed?.validHeader};
     } catch(error) {
       // Never claim commit after failed readback. CLOSE releases
       // TEST and RESET on STM32 1.0.10+; an incomplete image needs TEST recovery.
