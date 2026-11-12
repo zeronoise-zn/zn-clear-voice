@@ -33,6 +33,7 @@ import { Bm83Updater } from './bm83-updater.js';
 import { Bm83FlashUpdater, planBm83Flash } from './bm83-flash.js';
 import { latestBm83Backup } from './bm83-backup.js';
 import { Bm83AutoUpdater } from './bm83-auto.js';
+import { mountServiceAccess } from './service-access.js';
 
 const PRODUCT_DISPLAY_NAMES = new Map([
   ['ClearVoice', 'ClearVoice Portable Unit'],
@@ -94,17 +95,17 @@ export function startUi(translations, config) {
     en: [
       'Firmware (.znfw)',
       'Select a .znfw package or compatible release.',
-      'Structure and SHA-256 checked. ClearVoice requires a signature; HEADSET_BT uses unsigned packages.',
+      'Structure and SHA-256 checked. ClearVoice requires a signature; HEADSET_BT uses encrypted, authenticated packages.',
     ],
     it: [
       'Firmware (.znfw)',
       'Seleziona un pacchetto .znfw o una release compatibile.',
-      'Struttura e SHA-256 controllati. ClearVoice richiede la firma; HEADSET_BT usa pacchetti senza firma.',
+      'Struttura e SHA-256 controllati. ClearVoice richiede la firma; HEADSET_BT usa pacchetti cifrati e autenticati.',
     ],
     de: [
       'Firmware (.znfw)',
       'Ein .znfw-Paket oder eine kompatible Version auswählen.',
-      'Struktur und SHA-256 geprüft. ClearVoice erfordert eine Signatur; HEADSET_BT verwendet unsignierte Pakete.',
+      'Struktur und SHA-256 geprüft. ClearVoice erfordert eine Signatur; HEADSET_BT verwendet verschl?sselte, authentifizierte Pakete.',
     ],
     fr: [
       'Firmware (.znfw)',
@@ -114,7 +115,7 @@ export function startUi(translations, config) {
     es: [
       'Firmware (.znfw)',
       'Selecciona un paquete .znfw o una versión compatible.',
-      'Estructura y SHA-256 comprobados. ClearVoice requiere firma; HEADSET_BT usa paquetes sin firma.',
+      'Estructura y SHA-256 comprobados. ClearVoice requiere firma; HEADSET_BT usa paquetes cifrados y autenticados.',
     ],
   };
   for (const [language, a] of Object.entries(sharedCopy))
@@ -139,6 +140,7 @@ export function startUi(translations, config) {
     selectionError = false,
     packageSource = null;
   let lastAttempt = null;
+  let service = null;
   let applicationDiagnostics = {};
   let bm83 = null,
     bm83Flash = null,
@@ -183,6 +185,7 @@ export function startUi(translations, config) {
     node.scrollTop = node.scrollHeight;
   };
   const busy = () =>
+    service?.busy ||
     selecting ||
     manifestLoading ||
     updater?.busy ||
@@ -219,7 +222,7 @@ export function startUi(translations, config) {
     $('updateButton').disabled =
       !connected || locked || selectionError || (pkg && !pkg.identity) || (!pkg && !target);
     $('refreshReleaseButton').disabled = locked;
-    $('localFirmwareInput').disabled = locked;
+    $('localFirmwareInput').disabled = locked || !service?.authorized;
     const versionSelect = $('firmwareVersionSelect');
     if (versionSelect) versionSelect.disabled = locked || !target;
     $('abortButton').disabled =
@@ -250,7 +253,7 @@ export function startUi(translations, config) {
       (testMode && (!bm83FlashImage || updater?.info?.bm83_bridge !== 3));
     $('bm83FastProbe').disabled =
       !connected || locked || !headset || ![2, 3].includes(updater?.info?.bm83_bridge);
-    $('bm83Protocol').disabled = locked;
+    $('bm83Protocol').disabled = locked || bm83FlashImage?.encrypted === true;
     $('bm83Cancel').disabled = !bm83Flash?.busy && !bm83Auto?.busy;
     $('bm83AutoEnable').disabled = locked;
     $('bm83AutoRun').disabled = !connected || locked || !headset;
@@ -268,6 +271,7 @@ export function startUi(translations, config) {
     window.__ZN_UPDATER_BUSY__ = locked;
     window.__ZN_UPDATER_LOCAL__ = packageSource === 'local';
     if (wasLocked && !locked) queueMicrotask(() => window.__ZN_REFRESH_VERSIONS__?.());
+    service?.render();
   }
   function renderInfo(info) {
     $('productValue').textContent =
@@ -422,7 +426,7 @@ export function startUi(translations, config) {
       out.textContent = 'No package selected.';
       return;
     }
-    out.textContent = `${value.filename}\n${value.bytes.length} bytes · Firmware ${value.version}\nPackage SHA256: ${value.packageHash}\nPayload: ${value.imageSize} bytes · SHA256 OK\nProduct: ${value.productName} · HW mask 0x${value.hardwareMask.toString(16)}${value.hardwareMask & 1 ? ' (REV01 compatible)' : ''}\nMinimum bootloader: ${value.minimumBootloader >>> 24}.${(value.minimumBootloader >>> 16) & 255}.${value.minimumBootloader & 65535}\nPackage: structure / hash VALID. ${value.signatureRequired ? 'Signature validation pending on device.' : 'HEADSET_BT unsigned package; SHA-256 checked.'}`;
+    out.textContent = `${value.filename}\n${value.bytes.length} bytes · Firmware ${value.version}\nPackage SHA256: ${value.packageHash}\nPayload: ${value.imageSize} bytes · SHA256 OK\nProduct: ${value.productName} · HW mask 0x${value.hardwareMask.toString(16)}${value.hardwareMask & 1 ? ' (REV01 compatible)' : ''}\nMinimum bootloader: ${value.minimumBootloader >>> 24}.${(value.minimumBootloader >>> 16) & 255}.${value.minimumBootloader & 65535}\nPackage: structure / hash VALID. ${value.encrypted ? 'Encrypted package; authentication pending on device.' : value.signatureRequired ? 'Signature validation pending on device.' : 'Legacy HEADSET_BT package; SHA-256 checked.'}`;
     out.textContent += value.identity
       ? `\nCompiled identity: ${value.identity.buildId}\nGit: ${value.identity.git}`
       : '\nCompiled identity UNKNOWN: current ABI not uniquely recognized; update disabled.';
@@ -473,7 +477,7 @@ export function startUi(translations, config) {
         ? t('repositoryReady')
         : 'Select a local .znfw';
       $('releaseNotes').textContent =
-        'Select a package for the detected product. ClearVoice requires a signature; HEADSET_BT uses SHA-256.';
+        'Select a package for the detected product. ClearVoice requires a signature; HEADSET_BT requires encrypted, authenticated packages.';
       evaluateTarget();
     } catch (e) {
       log('Manifest unavailable', e.message);
@@ -518,6 +522,7 @@ export function startUi(translations, config) {
    * Crea un solo trasporto condiviso; cambiare porta invalida le prove END della precedente.
    */
   async function openConnection(port) {
+    service?.lock();
     if (io) await io.close();
     if (lastAttempt && lastAttempt.port !== port) {
       log(
@@ -828,6 +833,18 @@ export function startUi(translations, config) {
         return;
       }
       if (file.size > 8 * 1024 * 1024) throw new Error('File BM83 troppo grande.');
+      if (/\.znbt$/i.test(file.name)) {
+        const { inspectSecurePackage } = await import('./secure-package.js');
+        bm83FlashImage = {
+          ...(await inspectSecurePackage(await file.arrayBuffer(), file.name, 2)),
+          format: 'ZNFW2_BM83',
+        };
+        bm83Image = bm83FlashImage;
+        $('bm83Protocol').value = 'TEST';
+        $('bm83Status').textContent =
+          `${file.name}: firmware cifrato; autenticazione e verifica sulla cuffia.`;
+        return;
+      }
       const text = await file.text();
       bm83Image = await inspectBm83Image(text, file.name);
       bm83FlashImage = await planBm83Flash(text, file.name);
@@ -869,7 +886,7 @@ export function startUi(translations, config) {
     $('bm83Progress').value = 0;
     try {
       const pending =
-        $('bm83Protocol').value === 'TEST'
+        bm83FlashImage?.encrypted || $('bm83Protocol').value === 'TEST'
           ? bm83Flash.run(bm83FlashImage, { baud: Number($('bm83Baud').value) })
           : bm83.run(bm83Image);
       controls();
@@ -984,6 +1001,7 @@ export function startUi(translations, config) {
    * Rimuove la vecchia indicazione di successo: descrive una prova storica, non lo stato attuale.
    */
   function invalidateConnection() {
+    service?.lock();
     bm83Auto?.cancel();
     $('releaseBadge').textContent = stateLabel('DISCONNECTED');
     $('releaseBadge').className = 'release-badge neutral';
@@ -1015,6 +1033,13 @@ export function startUi(translations, config) {
     });
     controls();
   }
+  service = mountServiceAccess({
+    getIo: () => io,
+    getInfo: () => updater?.info,
+    busy,
+    language: () => language,
+    changed: controls,
+  });
   applyLanguage();
   if (!navigator.serial || !isSecureContext) {
     $('browserWarning').classList.remove('hidden');

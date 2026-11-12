@@ -1,5 +1,12 @@
 # Authenticated ClearVoice firmware updater
 
+HEADSET_BT now uses encrypted ZNFW128 v2: AES128-CTR + HMAC-SHA256 checked
+inside bootloader 1.2. DATA is 992 ciphertext bytes plus a 32-byte MAC; offsets
+acknowledge plaintext bytes. INFO flag32/capability28 select this policy.
+Legacy unsigned HEADSET v1 parsing remains for maintenance; the new bootloader
+rejects it. ClearVoice's signed package policy below remains unchanged.
+No secret/decryption is present in the browser. Migration needs one SWD update.
+
 WEB-01 replaces the former STM32 ROM/raw-BIN updater inside the existing page.
 The HTML layout, branding, external links, languages, responsive styles and
 release selector remain. There is one serial owner and one update controller.
@@ -358,3 +365,17 @@ cannot install this image and must be reprogrammed once through ST ROM DFU/SWD.
 Catalog names: `HEADSET_BT_<version>_USB.znfw`. ClearVoice retains `_PROD.znfw`.
 END success, exact post-reset identity and confirmed runtime are still required
 before COMPLETE. The unchanged physical USB serial permits reconnection.
+
+### HEADSET_BT service authentication extension
+
+Capability bit 27 advertises service access. Commands 9 CHALLENGE (32-byte
+host nonce), 10 LOGIN (1..32-byte ASCII username + 32-byte proof), 11 STATUS
+(no input) and 12 LOGOUT (no input) preserve the normal ZNBL response prefix
+and sequence/replay rules. Challenge appends salt16, nonce32, UID12 and
+iterationsLE32 (600000) after the eight-byte response prefix. STATUS appends
+one byte: 0 locked, 1 authorized. Invalid proof returns status 15; malformed
+length returns 3. Updates do not require a service session. The application
+exposes equivalent ZN_SERVICE_* text commands. Passwords are not transmitted;
+the client derives a PBKDF2-SHA256 verifier, then HMAC(verifier, DEVICE||UID),
+then HMAC(deviceKey, LOGIN||challengeNonce||username). Secrets are provisioned
+by the private firmware build, never included in this website.

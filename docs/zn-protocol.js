@@ -35,6 +35,10 @@ export const CMD = Object.freeze({
   STATUS: 6,
   ABORT: 7,
   REBOOT: 8,
+  SERVICE_CHALLENGE: 9,
+  SERVICE_LOGIN: 10,
+  SERVICE_STATUS: 11,
+  SERVICE_LOGOUT: 12,
 });
 export const CHUNK = 1024,
   MAX_WIRE = 1044;
@@ -238,11 +242,17 @@ export function checkTarget(pkg, info) {
     );
   if (
     !profile.signatureRequired &&
-    (!(info.flags & 16) || info.flags & 12 || (info.capabilities & 0xe0000000) >>> 0 !== 0x60000000)
+    (pkg.encrypted
+      ? !(info.flags & 32) ||
+        info.flags & 28 ||
+        (info.capabilities & 0xf0000000) >>> 0 !== 0x50000000
+      : !(info.flags & 16) ||
+        info.flags & 12 ||
+        (info.capabilities & 0xe0000000) >>> 0 !== 0x60000000)
   )
     throw new UpdateError(
       'UPDATE_POLICY_MISMATCH',
-      'HEADSET_BT unsigned-update bootloader required.',
+      'Il pacchetto richiede il bootloader HEADSET_BT con la politica corrispondente.',
     );
   if (!(pkg.hardwareMask & info.hardwareMask))
     throw new UpdateError('TARGET_MISMATCH', 'Hardware mask');

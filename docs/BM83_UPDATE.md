@@ -1,5 +1,23 @@
 # BM83 via HEADSET_BT USB/UART
 
+## Release cifrata REV5
+
+Il catalogo corrente usa `BT_REV5.znbt`, contenitore ZNFW v2 con AES128-CTR e
+HMAC-SHA256 verificati nello STM32. Richiede `bm83_secure:1` e il bootloader
+STM32 1.2, installati una volta tramite ST-Link. L'export sorgente scelto e
+`BT_REV5_1291.HEX` OTA Microchip, con chiave verificata durante il packaging
+locale. Il browser non lo decifra e non contiene chiavi.
+
+`bm83-secure.js` trasferisce blocchi cifrati da 4096 byte. Il dispositivo
+autentica, confronta e programma; restituisce hash della CONFIG senza esporne
+la chiave OTA. Prima di cambiare i dati invalida i vecchi header e li ripristina
+per ultimi. Calibrazione protetta, TEST/RESET sempre rilasciati alla chiusura.
+Il controllo di release confronta le versioni realmente lette e il digest
+della configurazione dichiarata, senza riscritture alla semplice riconnessione.
+
+Il seguito documenta anche il percorso General Use mantenuto per manutenzione;
+le immagini HEADSET in chiaro non fanno piu parte del catalogo corrente.
+
 ## Programmazione TEST / SPI, bridge v3
 
 Il nuovo percorso `bm83-flash.js` programma direttamente la Flash SST26VF016B

@@ -32,6 +32,7 @@ import { FLASH_SIZE, inspectBm83Image, parseBm83Hex } from './bm83-image.js';
 import { connectBm83Test } from './bm83-test-link.js';
 import { Bm83Bridge } from './bm83-updater.js';
 import { crc32 } from './zn-protocol.js';
+import { runEncryptedBm83 } from './bm83-secure.js';
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 const hex = (b) => Array.from(b, (v) => v.toString(16).padStart(2, '0')).join('');
 const equal = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
@@ -357,6 +358,7 @@ export class Bm83FlashUpdater {
    * Un errore non dichiara commit e non ritenta una mutazione incerta.
    */
   async run(plan, { baud = 921600, automatic = false } = {}) {
+    if (plan?.format === 'ZNFW2_BM83') return runEncryptedBm83(this, plan, { baud, automatic });
     if (this.busy) fail('BUSY', 'Operazione BM83 in corso.');
     if (plan?.format !== 'BM83_TEST_SPI' || !plan.regions?.length)
       fail('BM83_FLASH_PLAN', 'Piano TEST obbligatorio.');

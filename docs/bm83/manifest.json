@@ -1,13 +1,13 @@
 {
-  "schema": 1,
+  "schema": 2,
   "product": "HEADSET_BT",
   "hardware": "REV01",
   "module": "BM83",
-  "revision": 2,
-  "format": "BM83_GENERAL_USE",
-  "filename": "BT_HEADSET_REV2_0EB3.HEX",
-  "url": "./BT_HEADSET_REV2_0EB3.HEX",
-  "sha256": "e93178b1d9cd9e3a1666700dde1a12d69c30baaa8f88a6e0a0c20e3913164238",
+  "revision": 5,
+  "format": "ZNFW2_BM83",
+  "filename": "BT_REV5.znbt",
+  "url": "./BT_REV5.znbt",
+  "sha256": "218ff88f72ec0ffede4678c4c18b25bc61f87a8f0772e7af054d779b6025cf0d",
   "versions": {
     "MCU": [
       1,

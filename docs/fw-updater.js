@@ -293,7 +293,7 @@ export class FirmwareUpdater {
       if (begin.state !== 3 || begin.offset !== 0)
         throw new UpdateError('OFFSET_ERROR', 'Unexpected BEGIN response');
       this.bootState = 3;
-      for (const chunk of chunks(pkg.payload)) {
+      for (const chunk of pkg.encrypted ? pkg.records : chunks(pkg.payload)) {
         if (this.cancelRequested) {
           this.set('ABORTING');
           await this.abort();

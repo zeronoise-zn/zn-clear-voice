@@ -332,3 +332,12 @@ footer {
 
 #releasePanel .firmware-version-hint:not(.downgrade) { display: none; }
 .main-card #releasePanel { min-height: 0; }
+#serviceTools { border: 0; padding: 0; margin: 0; min-width: 0; }
+#serviceTools[hidden], #serviceForm[hidden] { display: none !important; }
+.service-access { padding: 0 24px 20px; color: var(--muted); font-size: 12px; }
+#serviceTitle { color: var(--text); font-weight: 700; }
+#serviceForm { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+#serviceForm label { display: grid; gap: 6px; flex: 1 1 170px; }
+#serviceForm input { width: 100%; box-sizing: border-box; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; }
+#serviceForm input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#serviceStatus { line-height: 1.5; }

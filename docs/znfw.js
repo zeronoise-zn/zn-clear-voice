@@ -25,6 +25,7 @@
  */
 // ZNFW128 v1: ClearvoicePUSTM32/Bootloader/Inc/zn_product.h, docs/bootloader/ZNFW_FORMAT.md.
 import { profileById, PRODUCT_PROFILES } from './product-profiles.js';
+import { inspectSecurePackage } from './secure-package.js';
 export const PRODUCT = 0x48575643;
 export const HEADER_SIZE = 128;
 export const MAX_IMAGE = 0x37800;
@@ -133,6 +134,7 @@ export async function inspectPackage(buffer, filename) {
   if (bytes.length < HEADER_SIZE)
     throw new UpdateError('INVALID_HEADER', 'Truncated ZNFW128 header.');
   const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (v.getUint16(4, true) === 2) return inspectSecurePackage(buffer, filename, 1);
   if (
     hex(bytes.subarray(0, 4)) !== '5a4e4657' ||
     v.getUint16(4, true) !== 1 ||

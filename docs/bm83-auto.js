@@ -25,6 +25,7 @@
  */
 import { UpdateError } from './znfw.js';
 import { planBm83Flash, sha256 } from './bm83-flash.js';
+import { inspectSecurePackage } from './secure-package.js';
 
 const fail = (message) => {
   throw new UpdateError('BM83_CATALOG', message);
@@ -77,7 +78,7 @@ export class Bm83AutoUpdater {
       if (!response.ok) fail('Catalogo BM83 non disponibile: HTTP ' + response.status + '.');
       const manifest = await response.json();
       if (
-        manifest.schema !== 1 ||
+        ![1, 2].includes(manifest.schema) ||
         manifest.product !== info.product ||
         manifest.hardware !== info.hardware ||
         manifest.module !== 'BM83' ||
@@ -85,12 +86,17 @@ export class Bm83AutoUpdater {
         !manifest.url ||
         !Number.isInteger(manifest.revision) ||
         manifest.revision < 1 ||
-        !/^.+\.hex$/i.test(manifest.filename || '') ||
+        !(manifest.schema === 2 ? /^.+\.znbt$/i : /^.+\.hex$/i).test(manifest.filename || '') ||
         !/^[a-f\d]{64}$/i.test(manifest.sha256 || '') ||
-        manifest.format !== 'BM83_GENERAL_USE'
+        manifest.format !== (manifest.schema === 2 ? 'ZNFW2_BM83' : 'BM83_GENERAL_USE')
       )
         fail('Catalogo BM83 incompatibile.');
       const imageUrl = new URL(manifest.url, manifestUrl);
+      if (manifest.schema === 2 && info.bm83_secure !== 1)
+        throw new UpdateError(
+          'BM83_BRIDGE_REQUIRED',
+          'Questa cuffia richiede la prima installazione del firmware cifrato tramite ST-Link.',
+        );
       if (
         imageUrl.origin !== manifestUrl.origin ||
         !imageUrl.pathname.startsWith(
@@ -111,11 +117,25 @@ export class Bm83AutoUpdater {
       const bytes = new Uint8Array(await image.arrayBuffer());
       if (bytes.length > 8 * 1024 * 1024 || (await sha256(bytes)) !== manifest.sha256.toLowerCase())
         fail('SHA-256 immagine BM83 non corrispondente.');
-      const plan = await planBm83Flash(
-        new TextDecoder('utf-8', { fatal: true }).decode(bytes),
-        manifest.filename,
-      );
-      for (const part of plan.images.filter((p) => p.version))
+      const plan =
+        manifest.schema === 2
+          ? {
+              ...(await inspectSecurePackage(bytes.buffer, manifest.filename, 2)),
+              format: 'ZNFW2_BM83',
+            }
+          : await planBm83Flash(
+              new TextDecoder('utf-8', { fatal: true }).decode(bytes),
+              manifest.filename,
+            );
+      if (manifest.schema === 2) {
+        plan.sha256 = plan.packageHash;
+        plan.total = plan.imageSize;
+      }
+      const parts =
+        manifest.schema === 2
+          ? Object.entries(plan.metadata.versions).map(([name, version]) => ({ name, version }))
+          : plan.images.filter((p) => p.version);
+      for (const part of parts)
         if (JSON.stringify(part.version) !== JSON.stringify(manifest.versions?.[part.name]))
           fail('Versione immagine diversa dal catalogo.');
       if (this.cancelled) throw new UpdateError('BM83_CANCELLED');

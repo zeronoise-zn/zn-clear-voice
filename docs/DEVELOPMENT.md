@@ -4,6 +4,14 @@ La pagina viene servita direttamente dalla cartella `docs/`; non esiste un
 bundle generato o un progetto npm da compilare. I moduli JS usano import ESM.
 I file firmware pubblicati e i manifest non vengono aggiornati dai test.
 
+HEADSET_BT: `secure-package.js` interpreta solo metadati e record cifrati;
+`bm83-secure.js` delega autenticazione/decifratura allo STM32. Non aggiungere
+chiavi al sito. Il repository HEADSET_BT genera `build/public` e il comando
+`tools/stage_web_release.py` prepara i soli pacchetti cifrati nel sito dopo
+verifica MAC e coerenza della build. Il file `build/private/HEADSET_BT_FACTORY.hex`
+e riservato a SWD e non va pubblicato. Il catalogo non va editato per cambiare
+solo uno SHA: deve provenire dal packaging della relativa immagine.
+
 Per i nuovi sorgenti del team usare il testo di
 [`COPYRIGHT_HEADER.txt`](../COPYRIGHT_HEADER.txt), adattando solo i delimitatori
 dei commenti al linguaggio. Conservare avvisi e licenze dei componenti di terze
@@ -69,3 +77,16 @@ buffer, formato, porta o baud.
 Il backup completo BM83 e stato rimosso. `bm83-backup.js` permette soltanto di
 leggere quelli storici gia salvati; non reinserire creazione dump nel flusso.
 TEST e RESET vengono rilasciati dal firmware STM32 a fine sessione, anche su errore.
+
+## Service login
+
+The public update flow requires no service login. HEADSET_BT service tools
+require username/password verified by the connected device using a single-use
+HMAC challenge and PBKDF2-SHA256 (600000 iterations). Credentials and the
+verifier belong only to the private firmware repository. Never put them in
+this public repository. service-access.js uses WebCrypto and keeps no stored
+password. Serial traces redact service exchanges. The device also restricts
+raw UART/Flash commands; hiding HTML alone is not the protection. Legacy
+firmware/ClearVoice without this capability cannot unlock this service area.
+A static page cannot hide its downloaded HTML/JS or provide server-side HTTP
+authentication. Session expiry, disconnect and logout lock the controls again.

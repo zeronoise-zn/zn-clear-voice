@@ -26,6 +26,9 @@
 import { UpdateError } from './znfw.js';
 import { decodeFrame, response, frame, ERRORS, CMD } from './zn-protocol.js';
 const commandName = (id) => Object.keys(CMD).find((name) => CMD[name] === id) || `CMD_${id}`;
+// Le sfide e le prove di accesso non devono finire nei log scaricabili.
+const safeServiceTrace = (s) =>
+  /ZN_SERVICE_|\[SERVICE\]|"service":/.test(s) ? '[SERVICE] redacted' : s;
 
 // One reader for the port lifetime. USB read boundaries never delimit messages.
 export class SerialTransport {
@@ -125,7 +128,7 @@ export class SerialTransport {
               'RX',
               this.mode === 'binary'
                 ? `${item.command === 255 ? 'NACK' : 'ACK'} ${commandName(item.request)} seq=${item.sequence} status=${item.status}/${ERRORS[item.status] || 'UNKNOWN'} state=${item.state} offset=${item.offset} length=${item.payload.length}`
-                : item,
+                : safeServiceTrace(item),
             );
             if (this.pending?.predicate(item)) this.pending.resolve(item);
           } catch {
@@ -209,7 +212,7 @@ export class SerialTransport {
     // prompt is required because the SerialPort object is unchanged.
     if ((command.includes('ZN_INFO?') || command.includes('ZN_STATS?')) && this.baudRate !== 230400)
       await this.reopenAt(230400);
-    this.trace('TX', command.replace(/\n/g, '\\n'));
+    this.trace('TX', safeServiceTrace(command.replace(/\n/g, '\\n')));
     this.modeSet('text');
     return this.exchange(new TextEncoder().encode(command), predicate, timeout);
   }
