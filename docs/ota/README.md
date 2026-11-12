@@ -11,6 +11,10 @@ Never replace the export with a General Use image or a factory STM32 image.
 The app checks product, transport, size, SHA-256, bank layout and embedded code
 versions. The headset performs native OTA CRC validation using its existing key.
 
-A matching MCU/DSP version does not identify the audio configuration. REV5
+A matching MCU/DSP version does not identify the audio configuration. REV6
 uses the same code versions as earlier configurations. The app explains this
 and allows an optional confirmed installation; it never flashes on connection.
+
+Current native export: `BT_REV6_119A.HEX`. The General Use source
+`BT_REV6_0FC0.HEX` stays in the private firmware repository and must never be
+published here. The USB catalog uses the separately encrypted `BT_REV6.znbt`.

@@ -3,11 +3,11 @@
   "product": "HEADSET_BT",
   "hardware": "REV01",
   "module": "BM83",
-  "revision": 5,
+  "revision": 6,
   "format": "ZNFW2_BM83",
-  "filename": "BT_REV5.znbt",
-  "url": "./BT_REV5.znbt",
-  "sha256": "218ff88f72ec0ffede4678c4c18b25bc61f87a8f0772e7af054d779b6025cf0d",
+  "filename": "BT_REV6.znbt",
+  "url": "./BT_REV6.znbt",
+  "sha256": "aafc20a9d93c6ef9693f05f612f819d291db9a9eecb8ffd4f1dbe573bff45ac2",
   "versions": {
     "MCU": [
       1,

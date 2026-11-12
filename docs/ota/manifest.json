@@ -5,11 +5,11 @@
   "transport": "BLE_AIRPATCH",
   "format": "MICROCHIP_OTA_CFB128",
   "encrypted": true,
-  "revision": 5,
-  "filename": "BT_REV5_1291.HEX",
-  "url": "./BT_REV5_1291.HEX",
+  "revision": 6,
+  "filename": "BT_REV6_119A.HEX",
+  "url": "./BT_REV6_119A.HEX",
   "size": 5898784,
-  "sha256": "9269d098e7cd7330e7b969e900f9dbd631b1722998a850f68bffbbbec2283318",
+  "sha256": "3fe3d24e7411d4f3945efa3a646076c927f16167de97a0b2d9a381a2b0368e29",
   "versions": {
     "MCU": [
       1,
@@ -24,5 +24,5 @@
       18
     ]
   },
-  "config_sha256": "d7c76a92c0ed479be1295ce0b5b5c28813b89f17cb00de1375ce74363517b5c0"
+  "config_sha256": "bae1d0e764b4015bfbdd9972ba065f0ed6bd8206815ee595329cdb9497b7ecdf"
 }
