@@ -1,3 +1,5 @@
 
 # Preserve the published BM83 image byte-for-byte for SHA-256 verification.
 docs/bm83/*.HEX -text
+# Conserva esattamente i byte dell'export OTA Microchip gia cifrato.
+docs/ota/*.HEX binary

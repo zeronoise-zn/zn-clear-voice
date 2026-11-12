@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "product": "HEADSET_BT",
+  "hardware": "REV01",
+  "transport": "BLE_AIRPATCH",
+  "format": "MICROCHIP_OTA_CFB128",
+  "encrypted": true,
+  "revision": 5,
+  "filename": "BT_REV5_1291.HEX",
+  "url": "./BT_REV5_1291.HEX",
+  "size": 5898784,
+  "sha256": "9269d098e7cd7330e7b969e900f9dbd631b1722998a850f68bffbbbec2283318",
+  "versions": {
+    "MCU": [
+      1,
+      3,
+      5,
+      6
+    ],
+    "DSP": [
+      1,
+      4,
+      4,
+      18
+    ]
+  },
+  "config_sha256": "d7c76a92c0ed479be1295ce0b5b5c28813b89f17cb00de1375ce74363517b5c0"
+}
