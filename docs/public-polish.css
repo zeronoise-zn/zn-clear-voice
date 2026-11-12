@@ -1,0 +1,357 @@
+/*
+ * Copyright (c) 2026 Racing Force S.p.A.
+ * All rights reserved.
+ *
+ * Author: Oscar Tofanelli
+ *
+ * PROPRIETARY AND CONFIDENTIAL
+ *
+ * This software, excluding third-party libraries and components governed by
+ * their respective license terms, is the exclusive property of Racing Force S.p.A.
+ *
+ * Any unauthorized use, modification, reproduction, distribution, disclosure,
+ * publication, transfer, or sharing of this software, in whole or in part,
+ * is strictly prohibited without the prior written consent of Racing Force S.p.A.
+ *
+ * This notice shall not alter or supersede the applicable license terms of any
+ * third-party software, libraries, or components included in or used by this project.
+ */
+
+/* Public ClearVoice updater polish - approved compact layout. */
+
+/* Keep engineering controls in the DOM for updater-ui.js, but remove them from
+   the public surface. The official website links remain available from the two
+   clickable brand logos in the header. */
+.site-links,
+footer {
+  display: none !important;
+}
+
+.page-shell {
+  padding-bottom: 22px;
+}
+
+.main-card {
+  align-items: stretch;
+}
+#firmwareStatusPanel[hidden], #firmwareStatusDivider[hidden] { display: none !important; }
+.main-card.device-disconnected { grid-template-columns: minmax(0, 1fr); }
+.main-card.device-disconnected .connect-zone,
+.main-card.device-disconnected .support-inline { grid-column: 1; }
+
+.connect-zone,
+.update-zone {
+  min-height: 500px;
+  padding: 28px;
+}
+
+.connect-zone {
+  display: flex;
+  flex-direction: column;
+}
+
+.update-zone {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+/* Device side: slightly stronger hierarchy without adding visual noise. */
+.device-summary {
+  margin-top: 16px;
+  margin-bottom: 20px;
+}
+
+.product-name {
+  font-size: 24px;
+}
+
+.device-facts {
+  margin-bottom: 20px;
+}
+
+.device-facts dt {
+  font-size: 9.5px;
+  color: #8195a8;
+}
+
+.device-facts dd {
+  font-size: 11.5px;
+}
+
+.btn-connect {
+  min-height: 50px;
+  font-size: 15px;
+}
+
+.connect-help {
+  margin-top: 10px;
+  font-size: 10px;
+}
+
+/* Firmware side: center the complete actionable flow and improve readability. */
+.section-head {
+  margin-bottom: 2px;
+}
+
+.section-head h2 {
+  font-size: 22px;
+}
+
+.version-compare,
+.firmware-version-picker,
+.release-panel,
+.progress-zone,
+.btn-update,
+.safety-copy {
+  width: min(100%, 640px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.version-compare {
+  grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 20px;
+  margin-bottom: 13px;
+}
+
+.version-block {
+  min-height: 66px;
+  padding: 13px 15px;
+  border-radius: 15px;
+}
+
+.version-block span {
+  font-size: 9.5px;
+  color: #8094a7;
+}
+
+.version-block strong {
+  margin-top: 6px;
+  font-size: 18.5px;
+  line-height: 1.18;
+}
+
+.version-block.accent {
+  border-color: rgba(72, 190, 236, .34);
+  background: linear-gradient(145deg, rgba(39,184,234,.09), rgba(39,184,234,.035));
+}
+
+.version-arrow {
+  font-size: 20px;
+  color: #8295a6;
+}
+
+.firmware-version-picker {
+  margin-top: 0;
+  margin-bottom: 14px;
+}
+
+.firmware-version-picker > label {
+  margin-bottom: 7px;
+  color: #a7b6c3;
+  font-size: 10.5px;
+}
+
+.firmware-version-select-wrap select {
+  min-height: 50px;
+  padding-left: 15px;
+  padding-right: 46px;
+  border-radius: 14px;
+  border-color: rgba(114,216,247,.28);
+  background: #08131d;
+  font-size: 13.5px;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1px rgba(39,184,234,.035);
+}
+
+.firmware-version-select-wrap select:hover:not(:disabled),
+.firmware-version-select-wrap select:focus {
+  border-color: rgba(114,216,247,.62);
+  box-shadow: 0 0 0 3px rgba(39,184,234,.09), inset 0 0 0 1px rgba(39,184,234,.05);
+}
+
+.firmware-version-hint {
+  margin: 8px 2px 0;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: #8fa3b5;
+}
+
+.firmware-version-hint.downgrade {
+  color: #f4cc73;
+}
+
+.release-panel {
+  margin-top: 0;
+  padding: 14px 16px;
+  border-radius: 15px;
+  background: linear-gradient(145deg, rgba(5,12,18,.66), rgba(7,16,24,.82));
+}
+
+.release-line {
+  gap: 16px;
+}
+
+.release-badge {
+  min-height: 27px;
+  padding: 0 10px;
+  font-size: 9.5px;
+  letter-spacing: .01em;
+}
+
+.release-source {
+  flex: 1;
+  min-width: 0;
+  color: #8397a9;
+  font-size: 9px;
+  line-height: 1.35;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.release-notes {
+  margin-top: 10px;
+  color: #a0b0be;
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.progress-zone {
+  margin-top: 18px;
+}
+
+.progress-topline {
+  margin-bottom: 8px;
+  color: #bac6d0;
+  font-size: 11px;
+}
+
+.progress-topline strong {
+  color: var(--text);
+  font-size: 11.5px;
+}
+
+.progress-track {
+  height: 8px;
+  background: rgba(255,255,255,.075);
+}
+
+.progress-meta {
+  margin-top: 8px;
+  color: #8295a6;
+  font-size: 9.5px;
+}
+
+.btn-update {
+  min-height: 58px;
+  margin-top: 19px;
+  border-radius: 14px;
+  font-size: 16px;
+  box-shadow: 0 16px 34px rgba(39,184,234,.18);
+}
+
+.btn-update svg {
+  width: 20px;
+  height: 20px;
+}
+
+.safety-copy {
+  margin-top: 10px;
+  color: #74899b;
+  font-size: 10px;
+}
+
+/* Hide the engineering widgets visually but keep every ID available to the
+   updater runtime so no serial/update behavior is changed. */
+.public-engineering-hooks {
+  display: none !important;
+}
+
+@media (max-width: 820px) {
+  .connect-zone,
+  .update-zone {
+    min-height: 0;
+    padding: 22px;
+  }
+
+  .version-compare,
+  .firmware-version-picker,
+  .release-panel,
+  .progress-zone,
+  .btn-update,
+  .safety-copy {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .version-compare {
+    grid-template-columns: 1fr;
+  }
+
+  .version-arrow {
+    transform: rotate(90deg);
+  }
+
+  .release-line {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .release-source {
+    text-align: left;
+  }
+}
+
+/* Keep technical tools available only inside the closed assistance section. */
+.support-inline summary { padding: 18px 24px; font-size: 12px; color: var(--muted-2); }
+.support-inline summary::after { content: ' +'; float: right; }
+.support-inline[open] > summary::after { content: ' -'; }
+.advanced-content { padding: 0 24px 18px; font-size: 12px; color: var(--muted); }
+.advanced-content .device-facts { margin-top: 18px; }
+#bm83AdvancedControls { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 12px; }
+#bm83AdvancedControls p { line-height: 1.5; }
+#bm83AdvancedControls label, #bm83AdvancedControls input, #bm83AdvancedControls select { display: block; max-width: 100%; margin: 10px 0; }
+#bm83AdvancedControls select { padding: 8px; background: var(--panel); color: var(--text); }
+#bm83AdvancedControls .support-actions { flex-direction: row; flex-wrap: wrap; margin: 14px 0; }
+#bm83AdvancedControls pre { max-height: 300px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; }
+#bm83Panel { padding: 24px 28px; }
+.audio-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.audio-heading h2 { margin: 0; font-size: 22px; }
+.audio-version { color: var(--muted); font-size: 12px; }
+#bm83Panel .audio-status { color: var(--text); font-size: 16px; font-weight: 700; margin: 20px 0 0; }
+#bm83Panel .audio-help { font-size: 11px; color: var(--muted-2); }
+.audio-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+#bm83Cancel:disabled { display: none; }
+#bm83Progress { height: 8px; border: 0; border-radius: 8px; overflow: hidden; }
+#bm83Progress::-webkit-progress-bar { background: rgba(255,255,255,.075); }
+#bm83Progress::-webkit-progress-value { background: var(--accent); }
+@media (max-width: 520px) {
+  #bm83Panel { padding: 22px; }
+  .audio-actions > button { width: 100%; }
+  .advanced-content { padding-left: 18px; padding-right: 18px; }
+}
+
+#releasePanel .firmware-version-hint:not(.downgrade) { display: none; }
+.main-card #releasePanel { min-height: 0; }
+#serviceTools { border: 0; padding: 0; margin: 0; min-width: 0; }
+#serviceTools[hidden], #serviceForm[hidden] { display: none !important; }
+.service-access { padding: 0 24px 20px; color: var(--muted); font-size: 12px; }
+#serviceTitle { color: var(--text); font-weight: 700; }
+#serviceForm { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+#serviceForm label { display: grid; gap: 6px; flex: 1 1 170px; }
+#serviceForm input { width: 100%; box-sizing: border-box; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; }
+#serviceForm input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#serviceStatus { line-height: 1.5; }
+.first-install { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.first-install summary { cursor: pointer; color: var(--accent); font-weight: 700; }
+.first-install p { line-height: 1.6; }
+#firstInstallForm { display: grid; gap: 12px; }
+#firstInstallForm label { display: grid; gap: 6px; }
+#firstInstallForm input { width: 100%; box-sizing: border-box; padding: 11px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--text); font: inherit; }
+#firstInstallForm input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#firstInstallProgress { display: block; width: 100%; height: 8px; accent-color: var(--accent); margin: 16px 0; }
+#firstInstallContinue { width: 100%; }
+.first-install [hidden], #firstInstallPanel[hidden] { display: none !important; }
