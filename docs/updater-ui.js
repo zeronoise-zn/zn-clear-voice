@@ -26,7 +26,7 @@
  */
 import { inspectPackage, UpdateError } from './znfw.js';
 import { SerialTransport } from './serial-transport.js';
-import { FirmwareUpdater, diagnosticLine } from './fw-updater.js';
+import { FirmwareUpdater, diagnosticLine, runtimeInfo } from './fw-updater.js';
 import { profileByName } from './product-profiles.js';
 import { inspectBm83Image } from './bm83-image.js';
 import { Bm83Updater } from './bm83-updater.js';
@@ -34,6 +34,7 @@ import { Bm83FlashUpdater, planBm83Flash } from './bm83-flash.js';
 import { latestBm83Backup } from './bm83-backup.js';
 import { Bm83AutoUpdater } from './bm83-auto.js';
 import { mountServiceAccess } from './service-access.js';
+import { mountFirstInstall, assertProvisionedApplication } from './first-install-ui.js';
 
 const PRODUCT_DISPLAY_NAMES = new Map([
   ['ClearVoice', 'ClearVoice Portable Unit'],
@@ -142,6 +143,7 @@ export function startUi(translations, config) {
   let lastAttempt = null;
   let deviceInfo = null; // Solo l'identita letta e validata sulla connessione corrente.
   let service = null;
+  let firstInstall = null;
   let applicationDiagnostics = {};
   let bm83 = null,
     bm83Flash = null,
@@ -185,7 +187,7 @@ export function startUi(translations, config) {
     ).slice(-524288);
     node.scrollTop = node.scrollHeight;
   };
-  const busy = () =>
+  const externalBusy = () =>
     service?.busy ||
     selecting ||
     manifestLoading ||
@@ -194,6 +196,7 @@ export function startUi(translations, config) {
     bm83Flash?.busy ||
     bm83Auto?.busy ||
     bm83Selecting;
+  const busy = () => firstInstall?.busy || externalBusy();
   function trace(direction, detail) {
     if (
       bm83Flash?.busy &&
@@ -289,6 +292,7 @@ export function startUi(translations, config) {
     if (deviceChanged) window.__ZN_REFRESH_VERSIONS__?.();
     if (wasLocked && !locked) queueMicrotask(() => window.__ZN_REFRESH_VERSIONS__?.());
     service?.render();
+    firstInstall?.render();
   }
   function renderInfo(info) {
     deviceInfo = info;
@@ -1079,6 +1083,37 @@ export function startUi(translations, config) {
     busy,
     language: () => language,
     changed: controls,
+  });
+  firstInstall = mountFirstInstall({
+    language: () => language,
+    externalBusy,
+    connected: () => !!io?.connected,
+    changed: controls,
+    connectApplication: async (port, expected) => {
+      // Non avviare Bluetooth su una COM diversa da quella appena inizializzata.
+      manualDisconnected = false;
+      try {
+        await openConnection(port);
+        assertProvisionedApplication(updater.info, expected);
+        const line = await io.text('\nZN_STATS?\n', (s) => /^\[RUNTIME\]/.test(s), 5000);
+        const health = runtimeInfo(line);
+        if (
+          health?.status !== 'RUNNING' ||
+          health.fault !== 'OK' ||
+          health.code !== 0 ||
+          !health.confirmed
+        )
+          throw new Error('FACTORY_BOOT_UNCONFIRMED');
+        bm83AutoAttempted = true;
+        await bm83Auto.run(updater.info);
+      } catch (e) {
+        await io?.close();
+        invalidateConnection();
+        throw e;
+      } finally {
+        controls();
+      }
+    },
   });
   applyLanguage();
   if (!navigator.serial || !isSecureContext) {

@@ -127,6 +127,48 @@ third-party software, libraries, or components included in or used by this proje
             The browser will ask permission to access the USB serial interface.
           </p>
 
+          <details id="firstInstallPanel" class="first-install">
+            <summary id="firstInstallTitle">Cuffia nuova? Prima installazione</summary>
+            <p id="firstInstallHelp">
+              Accedi con le credenziali assistenza per configurare una cuffia nuova.
+            </p>
+            <form id="firstInstallForm" autocomplete="off">
+              <label
+                ><span id="firstInstallUserLabel">Utente assistenza</span>
+                <input
+                  id="firstInstallUser"
+                  type="text"
+                  autocomplete="username"
+                  maxlength="32"
+                  required
+              /></label>
+              <label
+                ><span id="firstInstallPasswordLabel">Password</span>
+                <input
+                  id="firstInstallPassword"
+                  type="password"
+                  autocomplete="off"
+                  maxlength="256"
+                  required
+              /></label>
+              <button id="firstInstallStart" type="submit" class="btn btn-secondary">
+                Configura cuffia
+              </button>
+            </form>
+            <p id="firstInstallStatus" role="status" aria-live="polite">
+              Collega la cuffia nuova via USB per iniziare.
+            </p>
+            <progress
+              id="firstInstallProgress"
+              max="100"
+              value="0"
+              aria-label="Prima installazione"
+            ></progress>
+            <button id="firstInstallContinue" type="button" class="btn btn-secondary" hidden>
+              Collega la cuffia riavviata
+            </button>
+          </details>
+
           <div class="site-links" aria-label="Official websites">
             <a href="https://zeronoisedevices.com/" target="_blank" rel="noopener noreferrer"
               >ZeroNoise ↗</a
@@ -211,8 +253,8 @@ third-party software, libraries, or components included in or used by this proje
             <span id="bm83FriendlyVersion" class="audio-version"></span>
           </div>
           <p>
-            Il firmware Bluetooth viene controllato e aggiornato automaticamente. Durante l'operazione
-            Bluetooth e audio sono temporaneamente sospesi.
+            Il firmware Bluetooth viene controllato e aggiornato automaticamente. Durante
+            l'operazione Bluetooth e audio sono temporaneamente sospesi.
           </p>
           <p id="bm83FriendlyStatus" class="audio-status" role="status" aria-live="polite">
             Collega il dispositivo per verificare gli aggiornamenti Bluetooth.

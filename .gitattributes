@@ -3,3 +3,5 @@
 docs/bm83/*.HEX -text
 # Conserva esattamente i byte dell'export OTA Microchip gia cifrato.
 docs/ota/*.HEX binary
+# Il contenitore factory protetto deve mantenere hash e byte pubblicati.
+docs/first-install/*.znfi binary
