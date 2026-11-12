@@ -207,25 +207,25 @@ third-party software, libraries, or components included in or used by this proje
 
         <section id="bm83Panel" class="bm83-panel" hidden aria-labelledby="bm83Title">
           <div class="audio-heading">
-            <h2 id="bm83Title">Firmware audio</h2>
+            <h2 id="bm83Title">Firmware Bluetooth</h2>
             <span id="bm83FriendlyVersion" class="audio-version"></span>
           </div>
           <p>
-            Il firmware audio viene controllato e aggiornato automaticamente. Durante l'operazione
+            Il firmware Bluetooth viene controllato e aggiornato automaticamente. Durante l'operazione
             Bluetooth e audio sono temporaneamente sospesi.
           </p>
           <p id="bm83FriendlyStatus" class="audio-status" role="status" aria-live="polite">
-            Collega il dispositivo per verificare gli aggiornamenti audio.
+            Collega il dispositivo per verificare gli aggiornamenti Bluetooth.
           </p>
           <progress
             id="bm83Progress"
             max="100"
             value="0"
-            aria-label="Avanzamento aggiornamento audio"
+            aria-label="Avanzamento aggiornamento Bluetooth"
           ></progress>
           <div class="audio-actions">
             <button id="bm83AutoRun" class="btn btn-secondary" disabled>
-              Verifica aggiornamenti audio
+              Verifica aggiornamenti Bluetooth
             </button>
             <button id="bm83Cancel" class="btn btn-secondary" disabled>Interrompi</button>
           </div>
@@ -273,7 +273,7 @@ third-party software, libraries, or components included in or used by this proje
               <p>Strumenti per assistenza tecnica e caricamento manuale.</p>
               <label class="bm83-auto-choice"
                 ><input id="bm83AutoEnable" type="checkbox" checked /> Aggiorna automaticamente il
-                firmware audio alla connessione</label
+                firmware Bluetooth alla connessione</label
               >
               <dl class="device-facts">
                 <div>
@@ -314,7 +314,7 @@ third-party software, libraries, or components included in or used by this proje
                   <option value="TEST" selected>Embedded: programmazione TEST</option>
                   <option value="APP">Host UART: MCU DFU (collaudo)</option>
                 </select>
-                <label for="bm83File">Firmware audio (.znbt; .hex per manutenzione)</label>
+                <label for="bm83File">Firmware Bluetooth (.znbt; .hex per manutenzione)</label>
                 <input id="bm83File" type="file" accept=".znbt,.hex,.HEX" />
                 <div class="support-actions">
                   <button id="bm83Probe" class="btn btn-secondary" disabled>

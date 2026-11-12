@@ -753,20 +753,20 @@ export function startUi(translations, config) {
     if (event.kind === 'TRANSFER_MODE') bm83UsbBlock = event.usbBlock;
     if (event.state === 'BM83_LOG') return;
     const friendly = {
-      BM83_CATALOG_LOADING: 'Ricerca aggiornamenti audio...',
-      BM83_IMAGE_DOWNLOADING: 'Download aggiornamento audio...',
-      BM83_ONLINE_REFERENCE: 'Verifica del firmware audio installato...',
+      BM83_CATALOG_LOADING: 'Ricerca aggiornamenti Bluetooth...',
+      BM83_IMAGE_DOWNLOADING: 'Download aggiornamento Bluetooth...',
+      BM83_ONLINE_REFERENCE: 'Verifica del firmware Bluetooth installato...',
       BM83_INSTALLED: 'Confronto con la versione disponibile...',
-      BM83_COMPARING: 'Verifica aggiornamenti audio...',
-      BM83_CONNECTING: 'Collegamento al modulo audio...',
-      BM83_START: 'Preparazione aggiornamento audio...',
-      BM83_FLASHING: 'Installazione aggiornamento audio...',
-      BM83_SENDING: 'Installazione aggiornamento audio...',
-      BM83_FLASH_VERIFY: 'Verifica aggiornamento audio...',
-      BM83_VALIDATING: 'Verifica aggiornamento audio...',
-      BM83_REBOOTING: 'Riavvio del modulo audio...',
-      BM83_COMPLETE: 'Firmware audio aggiornato.',
-      BM83_UP_TO_DATE: 'Il firmware audio è già aggiornato.',
+      BM83_COMPARING: 'Verifica aggiornamenti Bluetooth...',
+      BM83_CONNECTING: 'Collegamento al modulo Bluetooth...',
+      BM83_START: 'Preparazione aggiornamento Bluetooth...',
+      BM83_FLASHING: 'Installazione aggiornamento Bluetooth...',
+      BM83_SENDING: 'Installazione aggiornamento Bluetooth...',
+      BM83_FLASH_VERIFY: 'Verifica aggiornamento Bluetooth...',
+      BM83_VALIDATING: 'Verifica aggiornamento Bluetooth...',
+      BM83_REBOOTING: 'Riavvio del modulo Bluetooth...',
+      BM83_COMPLETE: 'Firmware Bluetooth aggiornato.',
+      BM83_UP_TO_DATE: 'Il firmware Bluetooth è già aggiornato.',
       BM83_FAILED: 'Aggiornamento audio non completato. Puoi riprovare.',
       BM83_AUTO_FAILED: 'Verifica audio non completata. Puoi riprovare.',
       BM83_REBOOT_UNVERIFIED: 'Installazione terminata. Verifica il funzionamento audio.',
@@ -779,7 +779,7 @@ export function startUi(translations, config) {
           : event.error?.code === 'BM83_CATALOG'
             ? 'Download audio non disponibile. Verifica la connessione Internet e riprova.'
             : event.error?.code === 'BM83_NEWER_FIRMWARE'
-              ? 'Il dispositivo contiene un firmware audio più recente. Nessuna modifica eseguita.'
+              ? 'Il dispositivo contiene un firmware Bluetooth più recente. Nessuna modifica eseguita.'
               : friendly[event.state];
     if (message) $('bm83FriendlyStatus').textContent = message;
     if (event.state === 'BM83_CATALOG_LOADING') $('bm83Progress').value = 0;
@@ -889,7 +889,7 @@ export function startUi(translations, config) {
       controls();
       const version = await pending;
       $('bm83Status').textContent =
-        `BM83 risponde. Protocollo UART ${version}. Questo valore non identifica il firmware audio installato.`;
+        `BM83 risponde. Protocollo UART ${version}. Questo valore non identifica il firmware Bluetooth installato.`;
     } catch (e) {
       $('bm83Status').textContent = e.message;
       log('BM83 PROBE', e.message);
@@ -902,7 +902,7 @@ export function startUi(translations, config) {
     if (busy() || !bm83Image || !bm83) return;
     if (
       !confirm(
-        'Aggiornare il firmware audio BM83? Interrompi chiamate e riproduzione, mantieni il modulo alimentato e non scollegare USB.',
+        'Aggiornare il firmware Bluetooth BM83? Interrompi chiamate e riproduzione, mantieni il modulo alimentato e non scollegare USB.',
       )
     )
       return;
