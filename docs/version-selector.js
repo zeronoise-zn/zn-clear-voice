@@ -350,12 +350,7 @@
   }
 
   function deviceIdentity() {
-    const shownProduct = document.getElementById('productValue')?.textContent?.trim() || '';
-    return {
-      product: shownProduct === 'ClearVoice Portable Unit' ? 'ClearVoice' : shownProduct,
-      hardware: document.getElementById('hardwareValue')?.textContent?.trim() || '',
-      installed: document.getElementById('installedValue')?.textContent?.trim() || '',
-    };
+    return window.__ZN_UPDATER_DEVICE__ || { product: '', hardware: '', installed: '' };
   }
   function hardwareMatches(infoHw, rule) {
     if (!rule || rule === '*') return true;
@@ -365,10 +360,9 @@
   }
   function compatibleTargets() {
     const { product, hardware } = deviceIdentity();
-    const connected = document.getElementById('connectionPill')?.classList.contains('online');
+    if (!window.__ZN_UPDATER_DEVICE__) return [];
     return catalog
       .filter((item) => {
-        if (!connected) return true;
         return (
           String(item.product || '').toLowerCase() === String(product || '').toLowerCase() &&
           hardwareMatches(hardware, item.hardware)
@@ -391,8 +385,19 @@
     const installed = deviceIdentity().installed;
     const stored = sessionStorage.getItem(STORAGE_KEY) || '';
     select.innerHTML = '';
+    if (!window.__ZN_UPDATER_DEVICE__) {
+      select.disabled = true;
+      hint.textContent = '';
+      hint.classList.toggle('downgrade', false);
+      const latest = document.getElementById('latestVersionValue');
+      if (latest) latest.textContent = '';
+      updateRepositoryState(null);
+      return;
+    }
 
     if (!compatible.length) {
+      const latest = document.getElementById('latestVersionValue');
+      if (latest) latest.textContent = '—';
       select.add(new Option(catalogError ? 'GitHub unavailable' : '—', ''));
       select.disabled = true;
       hint.textContent = catalogError ? catalogError : tr('noPublishedNote');
@@ -422,6 +427,8 @@
     if (stored && selected !== latest) sessionStorage.setItem(STORAGE_KEY, selected.version);
     else if (!stored) sessionStorage.removeItem(STORAGE_KEY);
     select.value = selected.version;
+    const latestValue = document.getElementById('latestVersionValue');
+    if (latestValue) latestValue.textContent = selected.version;
     select.disabled = !!window.__ZN_UPDATER_BUSY__;
     hint.textContent = isDowngrade(selected, installed) ? tr('downgradeNote') : tr('selectHint');
     hint.classList.toggle('downgrade', isDowngrade(selected, installed));
@@ -468,7 +475,12 @@
     const badge = document.getElementById('releaseBadge');
     const notes = document.getElementById('releaseNotes');
     if (!badge || !notes) return;
-    if (!catalog.length) {
+    if (!window.__ZN_UPDATER_DEVICE__) {
+      badge.textContent = notes.textContent = '';
+      badge.className = 'release-badge neutral';
+      return;
+    }
+    if (!item) {
       badge.textContent = tr('noPublished');
       badge.className = 'release-badge neutral';
       notes.textContent = catalogError || tr('noPublishedNote');
@@ -498,7 +510,8 @@
     const latestValue = document.getElementById('latestVersionValue');
     const select = document.getElementById('firmwareVersionSelect');
     const installed = deviceIdentity().installed;
-    if (item && latestValue) latestValue.textContent = item.version;
+    if (latestValue)
+      latestValue.textContent = item?.version || (window.__ZN_UPDATER_DEVICE__ ? '—' : '');
     if (select && item && select.value !== item.version) select.value = item.version;
     const hint = document.getElementById('firmwareVersionHint');
     if (hint && item) {

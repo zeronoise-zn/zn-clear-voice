@@ -306,7 +306,7 @@ test('Existing UI controller: no permission on load, selected package/errors, co
   });
   const applicationHandler = port.handler;
   const saved = Object.fromEntries(['document','navigator','window','localStorage','sessionStorage','fetch','confirm','isSecureContext'].map(k=>[k,Object.getOwnPropertyDescriptor(globalThis,k)]));
-  const store = {getItem:()=>null,setItem(){}};
+  const store = {getItem:()=>null,setItem(){},removeItem(){}};
   const globals = {document:{getElementById:get,documentElement:{},querySelectorAll:()=>[]},window:{},
     navigator:{language:'en',serial:{requestPort:async()=>{requests++;return port;},addEventListener(){}}},
     localStorage:store,sessionStorage:store,fetch:async()=>({ok:true,json:async()=>({targets:[]})}),confirm:()=>true,isSecureContext:true};
@@ -314,12 +314,19 @@ test('Existing UI controller: no permission on load, selected package/errors, co
   try {
     startUi(Object.fromEntries(['en','it','de','fr','es'].map(x=>[x,{}])), {manifestUrl:'./firmware-manifest.json',usbFilters:[],appBaudRate:230400,bootBaudRate:230400});
     await new Promise(r=>setImmediate(r)); assert.equal(requests,0); assert.equal(get('updateButton').disabled,true);
+    assert.equal(get('firmwareStatusPanel').hidden,true);
+    assert.equal(window.__ZN_UPDATER_DEVICE__,null);
     const bytes = await fixture();
     get('localFirmwareInput').files = [{name:'wrong.bin',size:bytes.length,arrayBuffer:async()=>bytes.buffer}];
     await get('localFirmwareInput').fire('change'); assert.match(get('packageInfo').textContent,/INVALID_ZNFW/);
     get('localFirmwareInput').files = [{name:'test.znfw',size:bytes.length,arrayBuffer:async()=>bytes.buffer}];
     await get('localFirmwareInput').fire('change'); assert.match(get('packageInfo').textContent,/Signature validation pending/);
-    await get('connectButton').fire('click'); assert.equal(requests,1); assert.equal(get('updateButton').disabled,false);
+    await get('connectButton').fire('click'); assert.equal(requests,1);
+    assert.equal(get('firmwareStatusPanel').hidden,false);
+    assert.equal(window.__ZN_UPDATER_DEVICE__.product,'ClearVoice');
+    assert.equal(get('updateButton').disabled,true); // Previous selection cleared for this connection.
+    await get('localFirmwareInput').fire('change');
+    assert.equal(get('updateButton').disabled,false);
     assert.equal(port.options.baudRate,230400);
     assert.equal(get('productValue').textContent,'ClearVoice Portable Unit');
     assert.equal(app.product,'ClearVoice');
@@ -338,6 +345,11 @@ test('Existing UI controller: no permission on load, selected package/errors, co
     assert.match(get('diagnosticInfo').textContent,/BOOT_CONFIRM_RESULT/);
     assert.match(get('diagnosticInfo').textContent,/SUCCESS/);
     await get('connectButton').fire('click'); assert.equal(port.readable,null);
+    assert.equal(get('firmwareStatusPanel').hidden,true);
+    assert.equal(get('currentVersionValue').textContent,'');
+    assert.equal(get('latestVersionValue').textContent,'');
+    assert.equal(get('progressPercent').textContent,'0%');
+    assert.equal(window.__ZN_UPDATER_DEVICE__,null);
     assert.notEqual(get('releaseBadge').textContent,'Update complete');
     engine.state=0; engine.offset=0;
     port.handler = async (bytes,p) => {
@@ -346,6 +358,7 @@ test('Existing UI controller: no permission on load, selected package/errors, co
       p.send(frame(r.command,d.sequence,r.payload));
     };
     await get('connectButton').fire('click');
+    assert.equal(get('firmwareStatusPanel').hidden,false);
     assert.equal(get('currentVersionValue').textContent,'Recovery');
     assert.equal(port.options.baudRate,230400);
     assert.equal(get('releaseBadge').textContent,'Update not confirmed');
@@ -356,6 +369,13 @@ test('Existing UI controller: no permission on load, selected package/errors, co
     await get('connectButton').fire('click');
     assert.notEqual(get('releaseBadge').textContent,'Update complete');
     assert.match(get('technicalLog').textContent,/previous END acceptance discarded/);
+    otherPort.rx.close(); // Physical unplug: no click on Disconnect.
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(get('firmwareStatusPanel').hidden,true);
+    assert.equal(get('productValue').textContent,'\u2014');
+    assert.equal(get('latestVersionValue').textContent,'');
+    assert.equal(window.__ZN_UPDATER_DEVICE__,null);
+    await get('connectButton').fire('click');
     await get('connectButton').fire('click');
   } finally {
     for(const [k,descriptor] of Object.entries(saved)) { if(descriptor) Object.defineProperty(globalThis,k,descriptor); else delete globalThis[k]; }

@@ -140,6 +140,7 @@ export function startUi(translations, config) {
     selectionError = false,
     packageSource = null;
   let lastAttempt = null;
+  let deviceInfo = null; // Solo l'identita letta e validata sulla connessione corrente.
   let service = null;
   let applicationDiagnostics = {};
   let bm83 = null,
@@ -217,14 +218,22 @@ export function startUi(translations, config) {
    */
   function controls() {
     const connected = !!io?.connected,
-      locked = !!busy();
+      locked = !!busy(),
+      device = connected && deviceInfo && profileByName(deviceInfo.product) ? deviceInfo : null;
+    $('firmwareStatusPanel').hidden = !device;
+    $('firmwareStatusDivider').hidden = !device;
+    $('deviceCard').classList.toggle('device-disconnected', !device);
     $('connectButton').disabled = locked || !navigator.serial || !isSecureContext;
     $('updateButton').disabled =
-      !connected || locked || selectionError || (pkg && !pkg.identity) || (!pkg && !target);
-    $('refreshReleaseButton').disabled = locked;
+      !device ||
+      locked ||
+      selectionError ||
+      (pkg && (!pkg.identity || !packageMatchesDevice(pkg))) ||
+      (!pkg && !target);
+    $('refreshReleaseButton').disabled = locked || !device;
     $('localFirmwareInput').disabled = locked || !service?.authorized;
     const versionSelect = $('firmwareVersionSelect');
-    if (versionSelect) versionSelect.disabled = locked || !target;
+    if (versionSelect) versionSelect.disabled = !device || locked || !target;
     $('abortButton').disabled =
       !connected ||
       (!['BEGIN_UPDATE', 'SENDING'].includes(updater?.state) &&
@@ -235,8 +244,7 @@ export function startUi(translations, config) {
       updater?.info?.mode !== 'bootloader' ||
       [3, 4].includes(updater?.bootState);
     $('diagnosticsButton').disabled = !connected || locked;
-    const headset =
-      updater?.info?.product === 'HEADSET_BT' && updater?.info?.mode === 'application';
+    const headset = device?.product === 'HEADSET_BT' && device?.mode === 'application';
     $('bm83Panel').hidden = !headset;
     $('bm83AdvancedControls').hidden = !headset;
     $('bm83File').disabled = locked;
@@ -270,10 +278,20 @@ export function startUi(translations, config) {
     const wasLocked = window.__ZN_UPDATER_BUSY__;
     window.__ZN_UPDATER_BUSY__ = locked;
     window.__ZN_UPDATER_LOCAL__ = packageSource === 'local';
+    // Contratto di sola visualizzazione per il selettore: non deduce il prodotto
+    // da testi HTML rimasti sullo schermo e non autorizza operazioni sul dispositivo.
+    const snapshot = device
+      ? { product: device.product, hardware: device.hardware, installed: device.version || '' }
+      : null;
+    const deviceChanged =
+      JSON.stringify(window.__ZN_UPDATER_DEVICE__ ?? null) !== JSON.stringify(snapshot);
+    window.__ZN_UPDATER_DEVICE__ = snapshot;
+    if (deviceChanged) window.__ZN_REFRESH_VERSIONS__?.();
     if (wasLocked && !locked) queueMicrotask(() => window.__ZN_REFRESH_VERSIONS__?.());
     service?.render();
   }
   function renderInfo(info) {
+    deviceInfo = info;
     $('productValue').textContent =
       PRODUCT_DISPLAY_NAMES.get(info?.product) || info?.product || '—';
     $('mcuValue').textContent = profileByName(info?.product)?.mcu || '—';
@@ -430,10 +448,14 @@ export function startUi(translations, config) {
     out.textContent += value.identity
       ? `\nCompiled identity: ${value.identity.buildId}\nGit: ${value.identity.git}`
       : '\nCompiled identity UNKNOWN: current ABI not uniquely recognized; update disabled.';
-    $('latestVersionValue').textContent = value.version;
+  }
+  function packageMatchesDevice(value) {
+    if (!deviceInfo || value?.productName !== deviceInfo.product) return false;
+    const revision = Number(/^REV(\d+)$/.exec(deviceInfo.hardware || '')?.[1]);
+    return revision >= 1 && revision <= 32 && !!(value.hardwareMask & (1 << (revision - 1)));
   }
   function evaluateTarget() {
-    const info = updater?.info;
+    const info = io?.connected ? deviceInfo : null;
     const compatible = catalog.filter(
       (x) =>
         x.product === info?.product &&
@@ -445,7 +467,7 @@ export function startUi(translations, config) {
     );
     const selected = sessionStorage.getItem('zn-updater-fw-version');
     target = compatible.find((x) => x.version === selected) || compatible[0] || null;
-    if (!pkg) $('latestVersionValue').textContent = target?.version || '—';
+    $('latestVersionValue').textContent = info ? target?.version || '—' : '';
     controls();
   }
   async function loadManifest() {
@@ -522,6 +544,7 @@ export function startUi(translations, config) {
    * Crea un solo trasporto condiviso; cambiare porta invalida le prove END della precedente.
    */
   async function openConnection(port) {
+    invalidateConnection();
     service?.lock();
     if (io) await io.close();
     if (lastAttempt && lastAttempt.port !== port) {
@@ -1003,6 +1026,23 @@ export function startUi(translations, config) {
   function invalidateConnection() {
     service?.lock();
     bm83Auto?.cancel();
+    deviceInfo = null;
+    pkg = target = null;
+    packageSource = null;
+    selectionError = false;
+    ++fileGeneration;
+    sessionStorage.removeItem('zn-updater-fw-version');
+    window.__ZN_UPDATER_DEVICE__ = null;
+    $('firmwareStatusPanel').hidden = true;
+    $('firmwareStatusDivider').hidden = true;
+    $('deviceCard').classList.toggle('device-disconnected', true);
+    for (const id of ['productValue', 'hardwareValue', 'mcuValue', 'serialValue'])
+      $(id).textContent = '—';
+    $('latestVersionValue').textContent = '';
+    $('progressPercent').textContent = '0%';
+    $('progressBar').style.width = '0%';
+    $('progressBytes').textContent = '';
+    window.__ZN_REFRESH_VERSIONS__?.();
     $('releaseBadge').textContent = stateLabel('DISCONNECTED');
     $('releaseBadge').className = 'release-badge neutral';
     $('installationStatus').textContent =

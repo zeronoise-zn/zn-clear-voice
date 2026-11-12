@@ -98,7 +98,7 @@ third-party software, libraries, or components included in or used by this proje
         >
       </section>
 
-      <section class="main-card card">
+      <section id="deviceCard" class="main-card card device-disconnected">
         <div class="connect-zone">
           <div class="zone-title-row">
             <span class="eyebrow" data-i18n="device">DEVICE</span>
@@ -137,9 +137,9 @@ third-party software, libraries, or components included in or used by this proje
           </div>
         </div>
 
-        <div class="divider" aria-hidden="true"></div>
+        <div id="firmwareStatusDivider" class="divider" aria-hidden="true" hidden></div>
 
-        <div class="update-zone">
+        <div id="firmwareStatusPanel" class="update-zone" hidden>
           <div class="section-head">
             <div>
               <span class="eyebrow" data-i18n="firmware">FIRMWARE</span>

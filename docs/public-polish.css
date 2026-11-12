@@ -34,6 +34,10 @@ footer {
 .main-card {
   align-items: stretch;
 }
+#firmwareStatusPanel[hidden], #firmwareStatusDivider[hidden] { display: none !important; }
+.main-card.device-disconnected { grid-template-columns: minmax(0, 1fr); }
+.main-card.device-disconnected .connect-zone,
+.main-card.device-disconnected .support-inline { grid-column: 1; }
 
 .connect-zone,
 .update-zone {
