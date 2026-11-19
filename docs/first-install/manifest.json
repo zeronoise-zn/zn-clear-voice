@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "format": "ZN_FACTORY_AES256_GCM_V1",
+  "product": "HEADSET_BT",
+  "hardware": "REV01",
+  "version": "1.0.31",
+  "filename": "HEADSET_BT_1.0.31_FACTORY.znfi",
+  "url": "./HEADSET_BT_1.0.31_FACTORY.znfi",
+  "size": 87789,
+  "sha256": "b7ce84f67b0a4f48f6e5f1102493894135710b6a0358e2c66c6edf6f26b80c97"
+}

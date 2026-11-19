@@ -1,0 +1,25 @@
+{
+  "schema": 2,
+  "product": "HEADSET_BT",
+  "hardware": "REV01",
+  "module": "BM83",
+  "revision": 6,
+  "format": "ZNFW2_BM83",
+  "filename": "BT_REV6.znbt",
+  "url": "./BT_REV6.znbt",
+  "sha256": "3c4804c7c0d8be4554061083941d762668bc641f3def6f102d70b9a40b859768",
+  "versions": {
+    "MCU": [
+      1,
+      3,
+      5,
+      6
+    ],
+    "DSP": [
+      1,
+      4,
+      4,
+      18
+    ]
+  }
+}
