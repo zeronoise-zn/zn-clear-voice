@@ -46,6 +46,8 @@ const copy = {
     DETECTED: 'Rilevato un dispositivo per la prima installazione. Accedi per verificarlo.',
     AUTHORIZING: 'Autorizza il collegamento USB nella finestra del browser.',
     OPENING_PACKAGE: 'Preparazione del firmware protetto…',
+    OPENING_DFU: 'Apertura del collegamento DFU…',
+    IDENTIFYING_MCU: 'Identificazione della scheda…',
     CHECKING_BLANK: 'Verifica della scheda collegata…',
     INSTALLING_MCU: 'Installazione firmware della scheda…',
     VERIFYING_MCU: 'Verifica firmware della scheda…',
@@ -67,6 +69,10 @@ const copy = {
     wrong: 'È stata selezionata un’altra cuffia. Scegli la porta della scheda appena configurata.',
     failed:
       'Installazione non completata. Mantieni la cuffia collegata e riprova; se resta in DFU è disponibile il recupero con CubeProgrammer.',
+    detail: 'Fase: {phase}. Codice: {code}.',
+    download: 'Impossibile scaricare il firmware. Verifica la connessione Internet e riprova.',
+    package:
+      'Il pacchetto firmware non è valido o non coincide con il catalogo. Nessuna installazione avviata.',
   },
   en: {
     title: 'New headset? First installation',
@@ -79,6 +85,8 @@ const copy = {
     DETECTED: 'A first-installation USB device was detected. Sign in to check it.',
     AUTHORIZING: 'Authorize USB access in the browser dialog.',
     OPENING_PACKAGE: 'Preparing protected firmware…',
+    OPENING_DFU: 'Opening the DFU connection…',
+    IDENTIFYING_MCU: 'Identifying the board…',
     CHECKING_BLANK: 'Checking the connected board…',
     INSTALLING_MCU: 'Installing board firmware…',
     VERIFYING_MCU: 'Verifying board firmware…',
@@ -99,6 +107,10 @@ const copy = {
     wrong: 'A different headset was selected. Choose the port of the board just configured.',
     failed:
       'Installation not completed. Keep the headset connected and retry; CubeProgrammer recovery remains available while the device is in DFU.',
+    detail: 'Phase: {phase}. Code: {code}.',
+    download: 'Cannot download firmware. Check the Internet connection and retry.',
+    package:
+      'The firmware package is invalid or does not match the catalog. Installation has not started.',
   },
 };
 
@@ -124,6 +136,7 @@ export function mountFirstInstall({
     expected = null,
     connecting = false,
     message = null,
+    failureDetail = null,
     inFlight = false;
   const api = {
     get busy() {
@@ -143,11 +156,15 @@ export function mountFirstInstall({
     $('firstInstallPasswordLabel').textContent = c.password;
     $('firstInstallStart').textContent = c.start;
     $('firstInstallContinue').textContent = c.next;
-    $('firstInstallStatus').textContent = !supported
-      ? c.unsupported
-      : message
-        ? c[message]
-        : c[state];
+    const status = !supported ? c.unsupported : message ? c[message] : c[state];
+    // Mostra solo identificativi controllati, mai e.message arbitrario: un
+    // errore esterno potrebbe contenere password o contenuti del pacchetto.
+    $('firstInstallStatus').textContent =
+      failureDetail && supported
+        ? status +
+          ' ' +
+          c.detail.replace('{phase}', c[failureDetail.state]).replace('{code}', failureDetail.code)
+        : status;
     $('firstInstallProgress').value = progress;
     $('firstInstallForm').hidden = ['waiting', 'bluetooth', 'complete'].includes(phase);
     $('firstInstallStart').disabled = !supported || api.busy || externalBusy() || connected();
@@ -160,31 +177,56 @@ export function mountFirstInstall({
     state = next;
     progress = value;
     message = null;
+    failureDetail = null;
     render();
     changed();
   }
   function failure(e, waiting = false) {
     phase = waiting ? 'waiting' : 'idle';
     const code = e?.message || '';
+    const safeCode =
+      /^(DFU_(?:DEVICE|DESCRIPTOR|TRANSFER|TIMEOUT|STATE|RANGE|VERIFY|NOT_BLANK|PARTIAL_IMAGE|STATUS_\d{1,3})|FACTORY_(?:CREDENTIALS|FORMAT|DOWNLOAD|WRONG_DEVICE|BOOT_UNCONFIRMED))$/.test(
+        code,
+      )
+        ? code
+        : [
+              'NetworkError',
+              'SecurityError',
+              'NotSupportedError',
+              'InvalidStateError',
+              'NotFoundError',
+              'AbortError',
+              'TimeoutError',
+              'TypeError',
+            ].includes(e?.name)
+          ? e.name
+          : 'INSTALL_FAILED';
+    failureDetail = { state, code: safeCode };
     message =
       code === 'FACTORY_CREDENTIALS'
         ? 'credentials'
-        : code === 'DFU_NOT_BLANK'
-          ? 'notBlank'
-          : code === 'DFU_PARTIAL_IMAGE'
-            ? 'partial'
-            : code === 'DFU_DEVICE'
-              ? 'device'
-              : code === 'FACTORY_WRONG_DEVICE'
-                ? 'wrong'
-                : [
-                      'NetworkError',
-                      'SecurityError',
-                      'NotSupportedError',
-                      'InvalidStateError',
-                    ].includes(e?.name)
-                  ? 'driver'
-                  : 'failed';
+        : code === 'FACTORY_DOWNLOAD' ||
+            (state === 'OPENING_PACKAGE' &&
+              ['TypeError', 'AbortError', 'TimeoutError'].includes(e?.name))
+          ? 'download'
+          : code === 'FACTORY_FORMAT'
+            ? 'package'
+            : code === 'DFU_NOT_BLANK'
+              ? 'notBlank'
+              : code === 'DFU_PARTIAL_IMAGE'
+                ? 'partial'
+                : code === 'DFU_DEVICE'
+                  ? 'device'
+                  : code === 'FACTORY_WRONG_DEVICE'
+                    ? 'wrong'
+                    : [
+                          'NetworkError',
+                          'SecurityError',
+                          'NotSupportedError',
+                          'InvalidStateError',
+                        ].includes(e?.name) && state === 'OPENING_DFU'
+                      ? 'driver'
+                      : 'failed';
     render();
     changed();
   }
@@ -232,6 +274,7 @@ export function mountFirstInstall({
     $('firstInstallPassword').value = '';
     if (!username || !password) {
       message = 'credentials';
+      failureDetail = null;
       render();
       return;
     }
@@ -248,13 +291,14 @@ export function mountFirstInstall({
       opened = await openFactoryPackage(download.raw, username, password);
       if (opened.version !== download.manifest.version) throw new Error('FACTORY_FORMAT');
       dfu = createDfu(device, (e) => update(e.state, e.progress));
+      update('OPENING_DFU', 1);
       await dfu.open();
       const result = await dfu.install(opened.image);
       expected = { uid: result.uid, version: opened.version };
       phase = 'waiting';
       update('WAITING_SERIAL', 85);
     } catch (e) {
-      if (e?.name === 'NotFoundError') {
+      if (e?.name === 'NotFoundError' && state === 'AUTHORIZING') {
         phase = 'idle';
         update('READY', 0);
       } else failure(e);

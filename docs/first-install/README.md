@@ -8,8 +8,24 @@ of a real factory image. Test fixtures must contain only synthetic firmware.
 
 Chrome/Edge WebUSB access requires HTTPS, user permission and a compatible USB
 driver (WinUSB on Windows). Selecting ST DFU does not prove a HEADSET_BT board:
-the operator must select the intended headset. The installer then checks C071
-device ID, 64 KiB size, UID and the complete Flash before programming.
+the operator must select the intended headset. The installer accepts only the
+observed C071 ROM USB memory-target profile (bcdDevice 0x0220), then checks the real 64 KiB
+size register, UID and complete Flash before programming. Other ROM revisions
+or memory maps fail closed pending validation. The ROM's generic Flash target
+advertises 128 KiB even on G8: it is not the density check.
+
+The configuration has four alternate settings and one shared DFU functional
+descriptor after alternate 3. The transfer size is read from that descriptor.
+DBGMCU_IDCODE at 0x40015800 cannot be addressed by this ROM DFU (errVENDOR),
+so it is never requested. VID/PID and USB target strings alone cannot prove
+the headset PCB, package or ownership; operators must select the correct board.
+On a new manual session an inherited dfuERROR is cleared with CLRSTATUS,
+which only clears protocol state. Writes are never replayed on error.
+
+Failures show the installation phase and a controlled error code, without
+printing credentials, arbitrary exception text or decrypted firmware.
+Download failures are distinguished from USB open failures. Cancelling the
+USB chooser returns to Ready; losing the device after selection is an error.
 
 The flow writes board firmware first, verifies it, commits boot vectors last,
 and leaves DFU. It then checks the same UID, firmware version and boot health

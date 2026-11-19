@@ -125,6 +125,23 @@ class UsbMock {
     this.writes = [];
     this.commands = [];
     this.id = 0x493;
+    this.romVersion = 0x0220;
+    // Descrittore acquisito dalla ROM della scheda reale: il funzionale DFU
+    // arriva dopo alternate 3, non immediatamente dopo alternate 0.
+    this.descriptor = Uint8Array.from(
+      Buffer.from(
+        '09023600010102c0320904000000fe0102060904000100fe0102070904000200fe0102080904000300fe01020909210bff0000041a01',
+        'hex',
+      ),
+    );
+    this.targets = [
+      '@Internal Flash    /0x08000000/64*02Kg',
+      '@OB Bytes          /0x40022020/01*128 e',
+      '@ENGI Bytes        /0x1FFF7500/01*768 e',
+      '@OTP Memory        /0x1FFF7000/01*1024 e',
+    ];
+    this.error = 0;
+    this.clears = 0;
     this.kib = 64;
     this.left = false;
   }
@@ -137,12 +154,18 @@ class UsbMock {
   async claimInterface() {}
   async selectAlternateInterface() {}
   async controlTransferOut(s, data) {
-    if (s.request === 6) this.state = 2;
-    else if (s.request === 1) {
+    if (s.request === 6 && !this.error) this.state = 2;
+    else if (s.request === 4) {
+      assert.equal(this.state, 10);
+      this.error = 0;
+      this.state = 2;
+      this.clears++;
+    } else if (s.request === 1) {
       if (s.value === 0 && data.length === 5) {
         this.commands.push(data[0]);
         assert.equal(data[0], 0x21, 'Only SetAddress is allowed, never erase/unprotect');
         this.pointer = new DataView(data.buffer, data.byteOffset, data.length).getUint32(1, true);
+        assert.notEqual(this.pointer, 0x40015800, 'Real C071 ROM rejects peripheral registers');
         this.state = 3;
       } else if (s.value === 2) {
         assert.ok(this.pointer >= 0x08000000 && this.pointer + data.length <= 0x08010000);
@@ -165,12 +188,20 @@ class UsbMock {
   async controlTransferIn(s, length) {
     let bytes;
     if (s.requestType === 'standard') {
-      bytes = Uint8Array.from([
-        9, 2, 27, 0, 1, 1, 0, 0x80, 50, 9, 4, 0, 0, 0, 0xfe, 1, 2, 0, 9, 0x21, 0x0b, 0xff, 0, 0, 4,
-        0x1a, 1,
-      ]).slice(0, length);
+      if (s.value === 0x0200) bytes = this.descriptor.slice(0, length);
+      else if (s.value === 0x0100) {
+        bytes = Uint8Array.from(Buffer.from('1201000200000040830411df200201020301', 'hex'));
+        new DataView(bytes.buffer).setUint16(12, this.romVersion, true);
+        bytes = bytes.slice(0, length);
+      } else if (s.value >> 8 === 3) {
+        const target = this.targets[(s.value & 255) - 6];
+        assert.equal(typeof target, 'string');
+        const text = Buffer.from(target, 'utf16le');
+        bytes = Uint8Array.from([text.length + 2, 3, ...text]).slice(0, length);
+      } else throw new Error('Unexpected descriptor');
     } else if (s.request === 3) {
-      if (this.state === 3) {
+      if (this.error) bytes = Uint8Array.of(this.error, 0, 0, 0, 10, 0);
+      else if (this.state === 3) {
         bytes = Uint8Array.of(0, 1, 0, 0, 4, 0);
         this.state = 5;
       } else bytes = Uint8Array.of(0, 0, 0, 0, this.state, 0);
@@ -231,11 +262,10 @@ test('WebUSB first install proves chip/blank Flash, verifies readback and commit
   assert.equal(usb.left, true);
   assert.ok(usb.commands.every((c) => c === 0x21));
 });
-test('Wrong MCU, wrong Flash size, programmed board or different partial data never authorize writes', async () => {
+test('Wrong ROM profile, wrong Flash size, programmed board or different partial data never authorize writes', async () => {
   const image = await imageFixture();
-  for (const variant of ['id', 'size', 'programmed', 'partial']) {
+  for (const variant of ['size', 'programmed', 'partial']) {
     const usb = new UsbMock();
-    if (variant === 'id') usb.id = 0x460;
     if (variant === 'size') usb.kib = 128;
     if (variant === 'programmed') usb.memory[0] = 0;
     if (variant === 'partial') usb.memory[8000] = 0x34;
@@ -243,6 +273,41 @@ test('Wrong MCU, wrong Flash size, programmed board or different partial data ne
     await assert.rejects(dfu.install(image), /DFU_(DEVICE|NOT_BLANK|PARTIAL_IMAGE)/);
     assert.equal(usb.writes.length, 0);
   }
+});
+
+test('Real multi-alternate ROM descriptor opens, identifies 64 KiB, and never addresses DBGMCU', async () => {
+  const usb = new UsbMock(),
+    dfu = await makeDfu(usb);
+  assert.equal(dfu.transferSize, 1024);
+  assert.equal(await dfu.identify(), '0102030405060708090A0B0C');
+  assert.equal(usb.writes.length, 0);
+  await assert.rejects(dfu.read(0x40015800, 4), /DFU_RANGE/);
+});
+
+test('Different ROM revision, memory map, or malformed descriptor fails before Flash writes', async () => {
+  for (const variant of ['revision', 'flash', 'engineering', 'otp', 'option', 'truncated']) {
+    const usb = new UsbMock();
+    if (variant === 'revision') usb.romVersion = 0x0200;
+    if (variant === 'flash') usb.targets[0] = '@Internal Flash /0x08000000/128*02Kg';
+    if (variant === 'engineering') usb.targets[2] = '@ENGI Bytes /0x1FFF7800/01*768 e';
+    if (variant === 'otp') usb.targets[3] = '@OTP Memory /0x1FFF7000/01*512 e';
+    if (variant === 'option') usb.targets[1] = '@OB Bytes /0x40022040/01*128 e';
+    if (variant === 'truncated') usb.descriptor = usb.descriptor.slice(0, -1);
+    await assert.rejects(makeDfu(usb), /DFU_(DEVICE|DESCRIPTOR)/);
+    assert.equal(usb.writes.length, 0);
+    assert.equal(usb.commands.length, 0);
+  }
+});
+
+test('New manual session clears an inherited dfuERROR without erase or write replay', async () => {
+  const usb = new UsbMock();
+  usb.error = 11;
+  usb.state = 10;
+  const dfu = await makeDfu(usb);
+  assert.equal(usb.clears, 1);
+  assert.equal(await dfu.identify(), '0102030405060708090A0B0C');
+  assert.equal(usb.writes.length, 0);
+  assert.equal(usb.left, false);
 });
 test('Interrupted identical first install resumes only missing doublewords and keeps vectors last', async () => {
   const image = await imageFixture(),
@@ -425,5 +490,104 @@ test('First-install UI sequences MCU then serial/Bluetooth, clears plaintext, an
     assert.deepEqual(order, ['MCU', 'DFU-close', 'serial-permission', 'Bluetooth']);
     assert.equal(ui.busy, bluetoothFails);
     assert.equal(get('firstInstallProgress').value === 100, !bluetoothFails);
+  }
+});
+
+test('First-install errors expose safe phase/code, redact arbitrary exceptions, and do not hide a lost device', async () => {
+  const image = await imageFixture(),
+    raw = enc.encode(JSON.stringify(await envelope(image)));
+  for (const variant of ['descriptor', 'status', 'secret', 'lost', 'download']) {
+    const nodes = new Map();
+    const get = (id) => {
+      if (!nodes.has(id))
+        nodes.set(id, {
+          value: '',
+          handlers: {},
+          addEventListener(event, fn) {
+            this.handlers[event] = fn;
+          },
+        });
+      return nodes.get(id);
+    };
+    let plaintext,
+      closed = 0;
+    const secret = 'DO-NOT-DISPLAY-password-or-plaintext';
+    const ui = mountFirstInstall({
+      language: () => 'en',
+      externalBusy: () => false,
+      connected: () => false,
+      changed() {},
+      document: { getElementById: get },
+      serial: { requestPort() {} },
+      usb: { getDevices: async () => [], requestDevice: async () => ({}) },
+      fetcher: async (url) => {
+        if (variant === 'download') throw new TypeError(secret);
+        return url.endsWith('manifest.json')
+          ? {
+              ok: true,
+              json: async () => ({
+                schema: 1,
+                format: 'ZN_FACTORY_AES256_GCM_V1',
+                product: 'HEADSET_BT',
+                hardware: 'REV01',
+                version: '1.0.99',
+                filename: 'HEADSET_BT_1.0.99_FACTORY.znfi',
+                url: './HEADSET_BT_1.0.99_FACTORY.znfi',
+                size: raw.length,
+                sha256: await factoryHash(raw),
+              }),
+            }
+          : { ok: true, arrayBuffer: async () => raw.buffer };
+      },
+      createDfu: (device, notify) => ({
+        open: async () => {
+          if (variant === 'descriptor') throw new Error('DFU_DESCRIPTOR');
+          if (variant === 'lost') {
+            const e = new Error(secret);
+            e.name = 'NotFoundError';
+            throw e;
+          }
+        },
+        install: async (data) => {
+          plaintext = data;
+          notify({ state: 'IDENTIFYING_MCU', progress: 2 });
+          throw new Error(variant === 'status' ? 'DFU_STATUS_11' : secret);
+        },
+        close: async () => {
+          closed++;
+        },
+      }),
+    });
+    get('firstInstallUser').value = 'test';
+    get('firstInstallPassword').value = 'test-password-for-factory';
+    await get('firstInstallForm').handlers.submit({ preventDefault() {} });
+    const status = get('firstInstallStatus').textContent;
+    assert.ok(status.includes('Phase:'));
+    assert.ok(!status.includes(secret));
+    assert.ok(!status.includes('test-password-for-factory'));
+    assert.equal(get('firstInstallPassword').value, '');
+    assert.equal(ui.busy, false);
+    if (plaintext) assert.ok(plaintext.every((b) => b === 0));
+    if (variant === 'download') {
+      assert.ok(status.includes('Cannot download firmware'));
+      assert.ok(status.includes('TypeError'));
+      assert.equal(closed, 0);
+    } else {
+      assert.equal(closed, 1);
+      const code = {
+        descriptor: 'DFU_DESCRIPTOR',
+        status: 'DFU_STATUS_11',
+        secret: 'INSTALL_FAILED',
+        lost: 'NotFoundError',
+      }[variant];
+      assert.ok(status.includes(code));
+      assert.ok(
+        status.includes(
+          variant === 'status' || variant === 'secret'
+            ? 'Identifying the board'
+            : 'Opening the DFU connection',
+        ),
+      );
+    }
   }
 });

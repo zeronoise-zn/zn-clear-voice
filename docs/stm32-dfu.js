@@ -40,6 +40,7 @@ export class Stm32Dfu {
     this.interface = null;
     this.closed = false;
     this.transferSize = 0;
+    this.profileVerified = false;
   }
   async timed(operation) {
     let timer;
@@ -91,6 +92,7 @@ export class Stm32Dfu {
     await this.completeDownload();
   }
   async open() {
+    this.profileVerified = false;
     if (
       this.device.vendorId !== DFU_FILTER.vendorId ||
       this.device.productId !== DFU_FILTER.productId
@@ -126,26 +128,115 @@ export class Stm32Dfu {
     const raw = await descriptor(length);
     if (raw.status !== 'ok' || raw.data?.byteLength !== length) fail('DFU_DESCRIPTOR');
     let active = false;
+    const targets = new Map();
     for (let at = 0; at < length; ) {
+      if (at + 2 > length) fail('DFU_DESCRIPTOR');
       const n = raw.data.getUint8(at),
         type = raw.data.getUint8(at + 1);
       if (n < 2 || at + n > length) fail('DFU_DESCRIPTOR');
-      if (type === 4)
+      if (type === 4) {
         active =
-          n >= 9 && raw.data.getUint8(at + 2) === this.interface && raw.data.getUint8(at + 3) === 0;
-      if (type === 0x21 && active && n === 9) this.transferSize = raw.data.getUint16(at + 5, true);
+          n >= 9 &&
+          raw.data.getUint8(at + 2) === this.interface &&
+          raw.data.getUint8(at + 5) === 0xfe &&
+          raw.data.getUint8(at + 6) === 1 &&
+          raw.data.getUint8(at + 7) === 2;
+        if (active) {
+          const alternate = raw.data.getUint8(at + 3);
+          if (targets.has(alternate)) fail('DFU_DESCRIPTOR');
+          targets.set(alternate, raw.data.getUint8(at + 8));
+        }
+      }
+      // La ROM C071 mette UN descrittore funzionale dopo tutti gli alternate
+      // (0..3). Appartiene all'interfaccia DFU, non al solo alternate 0.
+      if (type === 0x21 && active && n === 9) {
+        if (this.transferSize) fail('DFU_DESCRIPTOR');
+        this.transferSize = raw.data.getUint16(at + 5, true);
+      }
       at += n;
     }
     if (this.transferSize < 8 || this.transferSize > 2048 || this.transferSize % 8)
       fail('DFU_DESCRIPTOR');
+    await this.verifyRomProfile(targets);
+    // Un tentativo precedente puo aver lasciato dfuERROR. CLRSTATUS pulisce
+    // solo il protocollo USB, mai Flash/protezioni. Nessun replay di scritture.
+    const previous = await this.input(3, 0, 6);
+    if (previous[4] === 10) await this.output(4, 0);
+    else if (previous[0] !== 0) fail('DFU_STATUS_' + previous[0]);
     await this.idle();
+  }
+  async usbString(index) {
+    if (!index) fail('DFU_DEVICE');
+    const get = (length) =>
+      this.timed(
+        this.device.controlTransferIn(
+          {
+            requestType: 'standard',
+            recipient: 'device',
+            request: 6,
+            value: 0x0300 | index,
+            index: 0x0409,
+          },
+          length,
+        ),
+      );
+    const head = await get(2);
+    if (head.status !== 'ok' || head.data?.byteLength !== 2 || head.data.getUint8(1) !== 3)
+      fail('DFU_DESCRIPTOR');
+    const length = head.data.getUint8(0);
+    if (length < 4 || length % 2) fail('DFU_DESCRIPTOR');
+    const raw = await get(length);
+    if (
+      raw.status !== 'ok' ||
+      raw.data?.byteLength !== length ||
+      raw.data.getUint8(0) !== length ||
+      raw.data.getUint8(1) !== 3
+    )
+      fail('DFU_DESCRIPTOR');
+    return new TextDecoder('utf-16le', { fatal: true }).decode(
+      new Uint8Array(raw.data.buffer, raw.data.byteOffset + 2, length - 2),
+    );
+  }
+  async verifyRomProfile(targets) {
+    // Il DBGMCU_IDCODE a 0x40015800 NON e leggibile da questa ROM via DFU:
+    // SetAddress viene rifiutato con errVENDOR anche da CubeProgrammer.
+    // Si ammette soltanto il profilo ROM C071 osservato (bcdDevice 0x0220) e i quattro
+    // target, poi si verifica la densita REALE e la UID in engineering bytes.
+    // Il descrittore Flash dichiara 128 KiB anche sul G8: non usarlo come size.
+    const result = await this.timed(
+      this.device.controlTransferIn(
+        { requestType: 'standard', recipient: 'device', request: 6, value: 0x0100, index: 0 },
+        18,
+      ),
+    );
+    const d = result.data;
+    if (
+      result.status !== 'ok' ||
+      d?.byteLength !== 18 ||
+      d.getUint8(1) !== 1 ||
+      d.getUint16(8, true) !== DFU_FILTER.vendorId ||
+      d.getUint16(10, true) !== DFU_FILTER.productId ||
+      d.getUint16(12, true) !== 0x0220 ||
+      targets.size !== 4
+    )
+      fail('DFU_DEVICE');
+    const expected = [
+      '@Internal Flash /0x08000000/64*02Kg',
+      '@OB Bytes /0x40022020/01*128 e',
+      '@ENGI Bytes /0x1FFF7500/01*768 e',
+      '@OTP Memory /0x1FFF7000/01*1024 e',
+    ];
+    for (let alternate = 0; alternate < expected.length; alternate++) {
+      const target = await this.usbString(targets.get(alternate));
+      if (target.replace(/\s+/g, ' ').trim() !== expected[alternate]) fail('DFU_DEVICE');
+    }
+    this.profileVerified = true;
   }
   async read(address, length) {
     const allowed = [
       [BASE, BASE + SIZE],
       [0x1fff7550, 0x1fff755c],
       [0x1fff75a0, 0x1fff75a2],
-      [0x40015800, 0x40015804],
     ];
     if (
       !Number.isInteger(address) ||
@@ -166,13 +257,9 @@ export class Stm32Dfu {
     return data;
   }
   async identify() {
-    const id = await this.read(0x40015800, 4),
-      size = await this.read(0x1fff75a0, 2);
-    if (
-      (new DataView(id.buffer).getUint32(0, true) & 0xfff) !== 0x493 ||
-      new DataView(size.buffer).getUint16(0, true) !== 64
-    )
-      fail('DFU_DEVICE');
+    if (!this.profileVerified) fail('DFU_DEVICE');
+    const size = await this.read(0x1fff75a0, 2);
+    if (new DataView(size.buffer).getUint16(0, true) !== 64) fail('DFU_DEVICE');
     const uid = await this.read(0x1fff7550, 12);
     if (uid.every((b) => b === 0) || uid.every((b) => b === 255)) fail('DFU_DEVICE');
     return Array.from(uid, (b) => b.toString(16).padStart(2, '0'))
@@ -195,6 +282,7 @@ export class Stm32Dfu {
   }
   async install(image) {
     await validateFactoryImage(image);
+    this.notify({ state: 'IDENTIFYING_MCU', progress: 2 });
     const uid = await this.identify();
     this.notify({ state: 'CHECKING_BLANK', progress: 2 });
     const old = await this.read(BASE, SIZE);
