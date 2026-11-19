@@ -151,10 +151,18 @@ third-party software, libraries, or components included in or used by this proje
                   maxlength="256"
                   required
               /></label>
+              <label class="remember-credentials">
+                <input id="firstInstallRemember" type="checkbox" checked />
+                <span id="firstInstallRememberLabel">Ricorda su questo browser</span>
+              </label>
               <button id="firstInstallStart" type="submit" class="btn btn-secondary">
                 Configura cuffia
               </button>
             </form>
+            <p id="firstInstallRememberStatus" role="status" aria-live="polite"></p>
+            <button id="firstInstallForget" type="button" class="btn btn-secondary">
+              Dimentica credenziali
+            </button>
             <p id="firstInstallStatus" role="status" aria-live="polite">
               Collega la cuffia nuova via USB per iniziare.
             </p>

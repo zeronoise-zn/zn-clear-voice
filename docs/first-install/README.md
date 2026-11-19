@@ -44,7 +44,25 @@ Power interruption during the final vector write is not an atomicity guarantee.
 Service credentials grant access to the full factory plaintext in the browser;
 authorized provisioning operators can therefore extract its embedded keys.
 This protects public downloads, not against an authorized operator or physical
-Flash extraction. Passwords and plaintext must never enter logs or storage.
+Flash extraction. Decrypted firmware must never enter logs or persistent storage.
+
+For repeated production programming, **Remember on this browser** is enabled
+by default. Only credentials that successfully authenticate the factory package
+are persisted. The masked password remains available for another attempt and
+is restored after reload in the same browser profile. **Forget credentials**
+removes the saved record and empties the fields; unchecking Remember also removes
+the record and restores password clearing after each attempt. Rejected credentials
+are forgotten automatically. No USB chooser or programming starts on reload.
+
+Remembered username/password are encrypted with AES-256-GCM in IndexedDB,
+with a new nonce and a non-extractable CryptoKey stored in the same atomic record.
+No plaintext credential is put in localStorage, a cookie, the repository or logs.
+This is browser-local convenience, not protection from scripts on the same origin
+or someone using the operator's browser profile. It is not a server login or a
+replacement for package authentication. Clearing site data removes the record.
+If storage is blocked, the current programming attempt remains available and
+the page reports that persistent saving/removal is unavailable. The assistance
+login remains independent and does not remember its password automatically.
 
 Validation includes WebUSB simulation, interrupted writes, wrong devices,
 wrong credentials, tamper detection and Python/WebCrypto interoperability.

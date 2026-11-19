@@ -352,6 +352,9 @@ footer {
 #firstInstallForm label { display: grid; gap: 6px; }
 #firstInstallForm input { width: 100%; box-sizing: border-box; padding: 11px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--text); font: inherit; }
 #firstInstallForm input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#firstInstallForm .remember-credentials { display: flex; align-items: center; gap: 10px; }
+#firstInstallForm input[type="checkbox"] { width: 18px; height: 18px; padding: 0; accent-color: var(--accent); }
+#firstInstallRememberStatus { margin: 10px 0; }
 #firstInstallProgress { display: block; width: 100%; height: 8px; accent-color: var(--accent); margin: 16px 0; }
 #firstInstallContinue { width: 100%; }
 .first-install [hidden], #firstInstallPanel[hidden] { display: none !important; }

@@ -23,6 +23,7 @@
  */
 import { Stm32Dfu, DFU_FILTER } from './stm32-dfu.js';
 import { fetchFactoryPackage, openFactoryPackage } from './factory-package.js';
+import { createRememberedCredentials } from './remembered-credentials.js';
 
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 export function assertProvisionedApplication(info, expected) {
@@ -40,6 +41,14 @@ const copy = {
     help: 'Configura una HEADSET_BT nuova. Accedi con le credenziali assistenza: installeremo prima il firmware della scheda, poi il firmware Bluetooth.',
     user: 'Utente assistenza',
     password: 'Password',
+    remember: 'Ricorda su questo browser',
+    forget: 'Dimentica credenziali',
+    remember_hint: 'Le credenziali corrette verranno ricordate su questo profilo del browser.',
+    remember_saved: 'Credenziali ricordate su questo browser.',
+    remember_forgotten: 'Credenziali dimenticate.',
+    remember_unavailable:
+      'Il browser non permette di salvare o cancellare le credenziali. Puoi continuare la programmazione.',
+    remember_rejected: 'Credenziali non valide rimosse. Reinserisci la password.',
     start: 'Configura cuffia',
     next: 'Collega la cuffia riavviata',
     READY: 'Collega la cuffia nuova via USB per iniziare.',
@@ -79,6 +88,14 @@ const copy = {
     help: 'Set up a new HEADSET_BT. Sign in with service credentials to install the board firmware first, followed by Bluetooth firmware.',
     user: 'Service username',
     password: 'Password',
+    remember: 'Remember on this browser',
+    forget: 'Forget credentials',
+    remember_hint: 'Valid credentials will be remembered in this browser profile.',
+    remember_saved: 'Credentials remembered on this browser.',
+    remember_forgotten: 'Credentials forgotten.',
+    remember_unavailable:
+      'The browser cannot save or remove credentials. You can continue programming.',
+    remember_rejected: 'Invalid credentials removed. Enter the password again.',
     start: 'Set up headset',
     next: 'Connect restarted headset',
     READY: 'Connect the new headset over USB to start.',
@@ -126,6 +143,7 @@ export function mountFirstInstall({
   createDfu = (device, notify) => new Stm32Dfu(device, notify),
   sleep = pause,
   document = globalThis.document,
+  credentialStore = createRememberedCredentials(),
 } = {}) {
   const $ = (id) => document.getElementById(id),
     panel = $('firstInstallPanel');
@@ -137,7 +155,11 @@ export function mountFirstInstall({
     connecting = false,
     message = null,
     failureDetail = null,
-    inFlight = false;
+    inFlight = false,
+    credentialsTouched = false,
+    rememberMessage = 'remember_hint',
+    storageQueue = Promise.resolve();
+  $('firstInstallRemember').checked = true;
   const api = {
     get busy() {
       return inFlight || ['running', 'waiting', 'bluetooth'].includes(phase);
@@ -154,6 +176,9 @@ export function mountFirstInstall({
     $('firstInstallHelp').textContent = c.help;
     $('firstInstallUserLabel').textContent = c.user;
     $('firstInstallPasswordLabel').textContent = c.password;
+    $('firstInstallRememberLabel').textContent = c.remember;
+    $('firstInstallForget').textContent = c.forget;
+    $('firstInstallRememberStatus').textContent = c[rememberMessage];
     $('firstInstallStart').textContent = c.start;
     $('firstInstallContinue').textContent = c.next;
     const status = !supported ? c.unsupported : message ? c[message] : c[state];
@@ -170,6 +195,8 @@ export function mountFirstInstall({
     $('firstInstallStart').disabled = !supported || api.busy || externalBusy() || connected();
     $('firstInstallUser').disabled = api.busy;
     $('firstInstallPassword').disabled = api.busy;
+    $('firstInstallRemember').disabled = api.busy;
+    $('firstInstallForget').disabled = api.busy;
     $('firstInstallContinue').hidden = phase !== 'waiting';
     $('firstInstallContinue').disabled = connecting;
   }
@@ -181,6 +208,44 @@ export function mountFirstInstall({
     render();
     changed();
   }
+  // Serializza lettura/salvataggio/cancellazione: un click su Dimentica non
+  // puo essere annullato da un salvataggio precedente ancora in corso.
+  function stored(operation) {
+    const result = storageQueue.then(operation);
+    storageQueue = result.catch(() => {});
+    return result;
+  }
+  for (const id of ['firstInstallUser', 'firstInstallPassword'])
+    $(id).addEventListener('input', () => {
+      credentialsTouched = true;
+    });
+  $('firstInstallRemember').addEventListener('change', async () => {
+    credentialsTouched = true;
+    if ($('firstInstallRemember').checked) {
+      rememberMessage = 'remember_hint';
+    } else {
+      try {
+        await stored(() => credentialStore.forget());
+        rememberMessage = 'remember_forgotten';
+      } catch {
+        rememberMessage = 'remember_unavailable';
+      }
+    }
+    render();
+  });
+  $('firstInstallForget').addEventListener('click', async () => {
+    if (api.busy) return;
+    credentialsTouched = true;
+    $('firstInstallRemember').checked = false;
+    $('firstInstallUser').value = $('firstInstallPassword').value = '';
+    try {
+      await stored(() => credentialStore.forget());
+      rememberMessage = 'remember_forgotten';
+    } catch {
+      rememberMessage = 'remember_unavailable';
+    }
+    render();
+  });
   function failure(e, waiting = false) {
     phase = waiting ? 'waiting' : 'idle';
     const code = e?.message || '';
@@ -271,6 +336,7 @@ export function mountFirstInstall({
     if (!supported || api.busy || externalBusy() || connected()) return;
     const username = $('firstInstallUser').value.trim(),
       password = $('firstInstallPassword').value;
+    credentialsTouched = true;
     $('firstInstallPassword').value = '';
     if (!username || !password) {
       message = 'credentials';
@@ -282,7 +348,9 @@ export function mountFirstInstall({
     inFlight = true;
     panel.open = true;
     update('AUTHORIZING', 0);
-    let dfu, opened;
+    let dfu,
+      opened,
+      credentialsRejected = false;
     try {
       // Deve essere la PRIMA chiamata asincrona del click: WebUSB richiede user gesture.
       const device = await usb.requestDevice({ filters: [DFU_FILTER] });
@@ -290,6 +358,16 @@ export function mountFirstInstall({
       const download = await fetchFactoryPackage(fetcher);
       opened = await openFactoryPackage(download.raw, username, password);
       if (opened.version !== download.manifest.version) throw new Error('FACTORY_FORMAT');
+      // Ricorda soltanto credenziali con cui il pacchetto e stato autenticato.
+      // Questo avviene DOPO il chooser: non si perde la user gesture WebUSB.
+      if ($('firstInstallRemember').checked) {
+        try {
+          await stored(() => credentialStore.save(username, password));
+          rememberMessage = 'remember_saved';
+        } catch {
+          rememberMessage = 'remember_unavailable';
+        }
+      }
       dfu = createDfu(device, (e) => update(e.state, e.progress));
       update('OPENING_DFU', 1);
       await dfu.open();
@@ -298,6 +376,15 @@ export function mountFirstInstall({
       phase = 'waiting';
       update('WAITING_SERIAL', 85);
     } catch (e) {
+      if (e?.message === 'FACTORY_CREDENTIALS') {
+        credentialsRejected = true;
+        try {
+          await stored(() => credentialStore.forget());
+          rememberMessage = 'remember_rejected';
+        } catch {
+          rememberMessage = 'remember_unavailable';
+        }
+      }
       if (e?.name === 'NotFoundError' && state === 'AUTHORIZING') {
         phase = 'idle';
         update('READY', 0);
@@ -305,6 +392,8 @@ export function mountFirstInstall({
     } finally {
       opened?.image.fill(0);
       await dfu?.close();
+      if ($('firstInstallRemember').checked && !credentialsRejected)
+        $('firstInstallPassword').value = password;
       inFlight = false;
       render();
       changed();
@@ -343,6 +432,18 @@ export function mountFirstInstall({
   usb?.addEventListener?.('connect', () => {
     void detect().catch(() => {});
   });
+  api.credentialsReady = stored(() => credentialStore.load())
+    .then((value) => {
+      // Non sovrascrivere dati che l'operatore ha gia iniziato a digitare.
+      if (credentialsTouched || !value) return;
+      $('firstInstallUser').value = value.username;
+      $('firstInstallPassword').value = value.password;
+      rememberMessage = 'remember_saved';
+    })
+    .catch(() => {
+      rememberMessage = 'remember_unavailable';
+    })
+    .finally(render);
   void detect().catch(() => {});
   render();
   return api;

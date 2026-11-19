@@ -483,7 +483,7 @@ test('First-install UI sequences MCU then serial/Bluetooth, clears plaintext, an
     get('firstInstallUser').value = 'test';
     get('firstInstallPassword').value = 'test-password-for-factory';
     await get('firstInstallForm').handlers.submit({ preventDefault() {} });
-    assert.equal(get('firstInstallPassword').value, '');
+    assert.equal(get('firstInstallPassword').value, 'test-password-for-factory');
     assert.ok(plaintext.every((b) => b === 0));
     assert.equal(get('firstInstallContinue').hidden, false);
     await get('firstInstallContinue').handlers.click();
@@ -565,7 +565,7 @@ test('First-install errors expose safe phase/code, redact arbitrary exceptions, 
     assert.ok(status.includes('Phase:'));
     assert.ok(!status.includes(secret));
     assert.ok(!status.includes('test-password-for-factory'));
-    assert.equal(get('firstInstallPassword').value, '');
+    assert.equal(get('firstInstallPassword').value, 'test-password-for-factory');
     assert.equal(ui.busy, false);
     if (plaintext) assert.ok(plaintext.every((b) => b === 0));
     if (variant === 'download') {
@@ -589,5 +589,192 @@ test('First-install errors expose safe phase/code, redact arbitrary exceptions, 
         ),
       );
     }
+  }
+});
+
+test('Valid first-install credentials are restored on reload and forgotten or invalidated without USB writes', async () => {
+  const raw = enc.encode(JSON.stringify(await envelope(await imageFixture())));
+  let saved = null,
+    requests = 0,
+    saves = 0;
+  const credentialStore = {
+    load: async () => saved && { ...saved },
+    save: async (username, password) => {
+      saved = { username, password };
+      saves++;
+    },
+    forget: async () => {
+      saved = null;
+    },
+  };
+  function mount(store = credentialStore) {
+    const nodes = new Map();
+    const get = (id) => {
+      if (!nodes.has(id))
+        nodes.set(id, {
+          value: '',
+          handlers: {},
+          addEventListener(event, fn) {
+            this.handlers[event] = fn;
+          },
+        });
+      return nodes.get(id);
+    };
+    const ui = mountFirstInstall({
+      language: () => 'it',
+      externalBusy: () => false,
+      connected: () => false,
+      changed() {},
+      document: { getElementById: get },
+      credentialStore: store,
+      serial: { requestPort() {} },
+      usb: {
+        getDevices: async () => [],
+        requestDevice: async () => {
+          requests++;
+          return {};
+        },
+      },
+      fetcher: async (url) =>
+        url.endsWith('manifest.json')
+          ? {
+              ok: true,
+              json: async () => ({
+                schema: 1,
+                format: 'ZN_FACTORY_AES256_GCM_V1',
+                product: 'HEADSET_BT',
+                hardware: 'REV01',
+                version: '1.0.99',
+                filename: 'HEADSET_BT_1.0.99_FACTORY.znfi',
+                url: './HEADSET_BT_1.0.99_FACTORY.znfi',
+                size: raw.length,
+                sha256: await factoryHash(raw),
+              }),
+            }
+          : { ok: true, arrayBuffer: async () => raw.buffer },
+      // Nessuna scrittura fisica: l'errore successivo all'autenticazione del
+      // pacchetto permette di verificare anche il riuso dopo errore USB.
+      createDfu: () => ({
+        open: async () => {
+          throw new Error('DFU_DESCRIPTOR');
+        },
+        close: async () => {},
+      }),
+    });
+    return {
+      get,
+      ui,
+      submit: () => get('firstInstallForm').handlers.submit({ preventDefault() {} }),
+    };
+  }
+  const first = mount();
+  await first.ui.credentialsReady;
+  first.get('firstInstallUser').value = 'test';
+  first.get('firstInstallPassword').value = 'test-password-for-factory';
+  await first.submit();
+  assert.equal(saves, 1);
+  assert.equal(first.get('firstInstallPassword').value, 'test-password-for-factory');
+  const second = mount();
+  await second.ui.credentialsReady;
+  assert.equal(requests, 1, 'Reload never opens a USB chooser');
+  assert.equal(second.get('firstInstallUser').value, 'test');
+  assert.equal(second.get('firstInstallPassword').value, 'test-password-for-factory');
+  await second.submit();
+  assert.equal(requests, 2);
+  assert.equal(saves, 2);
+  second.get('firstInstallPassword').value = 'wrong-synthetic-password';
+  await second.submit();
+  assert.equal(saved, null, 'Rejected credentials must not be remembered');
+  assert.equal(second.get('firstInstallPassword').value, '');
+  assert.equal(saves, 2);
+  assert.ok(
+    second.get('firstInstallStatus').textContent.includes('Credenziali assistenza non corrette'),
+  );
+  first.get('firstInstallPassword').value = 'test-password-for-factory';
+  await first.submit();
+  await first.get('firstInstallForget').handlers.click();
+  assert.equal(saved, null);
+  assert.equal(first.get('firstInstallUser').value, '');
+  assert.equal(first.get('firstInstallPassword').value, '');
+  assert.equal(first.get('firstInstallRemember').checked, false);
+  const forgotten = mount();
+  await forgotten.ui.credentialsReady;
+  assert.equal(forgotten.get('firstInstallPassword').value, '');
+  // Deselezionare Ricorda cancella il record e conserva il comportamento
+  // precedente: password svuotata dopo ogni tentativo.
+  forgotten.get('firstInstallRemember').checked = false;
+  await forgotten.get('firstInstallRemember').handlers.change();
+  forgotten.get('firstInstallUser').value = 'test';
+  forgotten.get('firstInstallPassword').value = 'test-password-for-factory';
+  const before = saves;
+  await forgotten.submit();
+  assert.equal(saves, before);
+  assert.equal(forgotten.get('firstInstallPassword').value, '');
+  // Anche con storage bloccato resta disponibile la programmazione.
+  const unavailable = mount({
+    load: async () => {
+      throw new Error();
+    },
+    save: async () => {
+      throw new Error();
+    },
+    forget: async () => {
+      throw new Error();
+    },
+  });
+  await unavailable.ui.credentialsReady;
+  unavailable.get('firstInstallUser').value = 'test';
+  unavailable.get('firstInstallPassword').value = 'test-password-for-factory';
+  await unavailable.submit();
+  assert.ok(unavailable.get('firstInstallStatus').textContent.includes('DFU_DESCRIPTOR'));
+  assert.ok(unavailable.get('firstInstallRememberStatus').textContent.includes('non permette'));
+});
+
+test('Slow credential restore never replaces operator input or undoes Forget', async () => {
+  for (const action of ['typing', 'forget']) {
+    let resolveLoad,
+      removed = false;
+    const nodes = new Map(),
+      get = (id) => {
+        if (!nodes.has(id))
+          nodes.set(id, {
+            value: '',
+            handlers: {},
+            addEventListener(e, fn) {
+              this.handlers[e] = fn;
+            },
+          });
+        return nodes.get(id);
+      };
+    const ui = mountFirstInstall({
+      language: () => 'en',
+      externalBusy: () => false,
+      connected: () => false,
+      changed() {},
+      document: { getElementById: get },
+      serial: { requestPort() {} },
+      usb: { requestDevice() {} },
+      credentialStore: {
+        load: () =>
+          new Promise((r) => {
+            resolveLoad = r;
+          }),
+        forget: async () => {
+          removed = true;
+        },
+      },
+    });
+    await Promise.resolve();
+    let done;
+    if (action === 'typing') {
+      get('firstInstallUser').value = 'new-operator';
+      get('firstInstallUser').handlers.input();
+    } else done = get('firstInstallForget').handlers.click();
+    resolveLoad({ username: 'old-operator', password: 'old-synthetic-password' });
+    await ui.credentialsReady;
+    await done;
+    assert.equal(get('firstInstallPassword').value, '');
+    assert.equal(get('firstInstallUser').value, action === 'typing' ? 'new-operator' : '');
+    if (action === 'forget') assert.equal(removed, true);
   }
 });
